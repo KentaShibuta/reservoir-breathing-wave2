@@ -1,0 +1,10 @@
+services:
+   app:
+      build: .
+      container_name: reservoir_breathing_wave2
+      volumes:
+         - ../app/src:/root/app/src
+         - ../app/data:/root/app/data
+         - ../app/model:/root/app/model
+      stdin_open: true
+      tty: true
