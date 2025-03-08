@@ -43,6 +43,33 @@ class ESN{
             return numbers;
         }
 
+        // std::unique_ptr<std::vector<std::vector<float>>> を Eigen::MatrixXf に変換
+        Eigen::MatrixXf uniquePtrToEigenMatrix(const std::unique_ptr<std::vector<std::vector<float>>>& ptr) {
+            if (!ptr || ptr->empty()) {
+                throw std::invalid_argument("入力が空です。");
+            }
+
+            int rows = ptr->size();          // 行数
+            int cols = ptr->at(0).size();    // 列数
+
+            // 列数が揃っているか確認
+            for (const auto& row : *ptr) {
+                if (row.size() != static_cast<size_t>(cols)) {
+                    throw std::invalid_argument("全ての行の列数が一致しません。");
+                }
+            }
+
+            Eigen::MatrixXf eigenMat(rows, cols);
+            
+            for (int i = 0; i < rows; ++i) {
+                for (int j = 0; j < cols; ++j) {
+                    eigenMat(i, j) = (*ptr)[i][j];
+                }
+            }
+
+            return eigenMat;
+        }
+
         // ランダムなErdos-Renyiグラフを生成
         std::unique_ptr<std::vector<std::vector<uint8_t>>> generate_erdos_renyi(size_t N_x, float density) {
             uint_fast32_t seed = 0;
@@ -50,7 +77,9 @@ class ESN{
             std::uniform_int_distribution<size_t> dist(0, N_x - 1);  // 範囲 [0, N_x-1] の一様分布
 
             auto adjacency_matrix = std::make_unique<std::vector<std::vector<uint8_t>>>(N_x, std::vector<uint8_t>(N_x, 0));
-            size_t m = static_cast<size_t>(N_x * (N_x - 1) * density / 2);  // 総結合数
+            size_t m = static_cast<size_t>(N_x * (N_x - 1) * density / 2.0);  // 総結合数
+
+            //std::cout << "m: " << m << std::endl;
 
             size_t edge_count = 0;
             while (edge_count < m) {
@@ -69,16 +98,86 @@ class ESN{
         }
 
         std::unique_ptr<std::vector<std::vector<float>>> make_connection_mat(size_t N_x, float density, float rho) {
-            auto connection_matrix = std::make_unique<std::vector<std::vector<uint8_t>>>(N_x, std::vector<uint8_t>(N_x));
+            auto connection_matrix = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(N_x));
             auto w1 = generate_erdos_renyi(N_x, density);
             auto w2 = generate_uniform_random(N_x, N_x, 1.0);
+
+            // print
+            //////////////////////
+            /*
+            std::cout << "w1" << std::endl;
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    std::cout << (int)((*w1)[i][j]) << " ";
+                }
+                std::cout << std::endl;
+            }
+
+            std::cout << "w2" << std::endl;
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    std::cout << (*w2)[i][j] << " ";
+                }
+                std::cout << std::endl;
+            }
+            */
+
+            //////////////////////
 
             #pragma omp parallel for
             for (size_t i = 0; i < N_x; i++){
                 for (size_t j = 0; j < N_x; j++){
-                    (*connection_matrix)[i][j] = (*w1)[i][j] * (*w2)[i][j]
+                    (*connection_matrix)[i][j] = (*w1)[i][j] * (*w2)[i][j];
                 }
             }
+
+            // Eigen::MatrixXf に変換
+            float sp_radius = 0.0;
+            try {
+                Eigen::MatrixXf eigenMat = uniquePtrToEigenMatrix(connection_matrix);
+                //std::cout << "Eigen::MatrixXf:\n" << eigenMat << std::endl;
+
+                
+                Eigen::EigenSolver<Eigen::MatrixXf> solver(eigenMat);
+                Eigen::VectorXcf eigenvalues = solver.eigenvalues();
+
+                for (size_t i = 0; i < (size_t)eigenvalues.size(); ++i) {
+                    //std::cout << "seigenvalues[" << i << "]: " << eigenvalues[i] << std::endl;
+                    //std::cout << "abs(seigenvalues[" << i << "]): " << std::abs(eigenvalues[i]) << std::endl;
+                    float absVal = std::abs(eigenvalues[i]);  // 固有値の絶対値
+                    if (absVal > sp_radius) {
+                        sp_radius = absVal;
+                    }
+                }
+                
+
+            } catch (const std::exception& e) {
+                std::cerr << "エラー: " << e.what() << std::endl;
+            }
+
+            //std::cout << "sp_radius: " << sp_radius << std::endl;
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    (*connection_matrix)[i][j] *= (rho / (1.0 * sp_radius));
+                }
+            }
+
+            // print
+            ////////////////////
+            /*
+            std::cout << "connection_matrix" << std::endl;
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    std::cout << (*connection_matrix)[i][j] << " ";
+                }
+                std::cout << std::endl;
+            }
+            */
+            ////////////////////
+
+            return connection_matrix;
         }
 
     public:
@@ -94,10 +193,82 @@ class ESN{
         size_t N_x;
         size_t N_y;
 
-        ESN(size_t N_u, size_t N_y, size_t N_x, float density=0.05, float input_scale=1.0, float rho=0.95, float leaking_rate=1.0){
-            auto mat_w_in = generate_uniform_random(N_u, N_x, input_scale);
-            auto mat_w = generate_erdos_renyi(N_x, density);
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density=0.05, float input_scale=1.0, float rho=0.95, float leaking_rate=1.0){
+            N_u = n_u;
+            N_y = n_y;
+            N_x = n_x;
+
+            
+            auto mat_w_in = generate_uniform_random(N_x, N_u, input_scale);
+            /*
+            std::cout << "mat_w_in: " << std::endl; 
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_u; j++){
+                    std::cout << (*mat_w_in)[i][j] << " ";
+                }
+                std::cout << std::endl;
+            }
+            */
+
+            auto mat_w = make_connection_mat(N_x, density, rho);
             auto mat_w_out = generate_normal_distribution(N_y, N_x);
+
+            auto x_ptr = std::make_unique<std::vector<float>>(N_x, 0.0f);
+
+            /*
+            std::cout << "mat_w_out: " << std::endl; 
+            for (size_t i = 0; i < N_y; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    std::cout << (*mat_w_out)[i][j] << " ";
+                }
+                std::cout << std::endl;
+            }
+            */
+
+            vec_w_in = *mat_w_in;
+            vec_w = *mat_w;
+            vec_w_out = *mat_w_out;
+            vec_x = *x_ptr;
+            a_alpha = leaking_rate;
+        }
+
+        void SetInput(py::array_t<float> u, py::array_t<float> w_out){
+            std::cout << "Start SetInput" << std::endl;
+
+            const auto &u_buf = u.request();
+            const auto &u_shape = u_buf.shape;
+            const auto &u_ndim = u_buf.ndim;
+            N = u_shape[0];
+            N_window = u_shape[1];
+            N_u = u_shape[2];
+            float *ptr_u = static_cast<float *>(u_buf.ptr);
+            vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
+            if (u_ndim == 3) {
+                for (size_t i = 0; i < N; i++){
+                    for (size_t j = 0; j < N_window; j++){
+                        for (size_t k = 0; k < N_u; k++){
+                            vec_u[i][j][k] = ptr_u[i * N_window * N_u + j * N_u + k];
+                        }
+                    }
+                }
+            } else {
+                std::cout << "u: shape error. ndim = " << u_ndim << std::endl;
+            }
+
+            const auto &w_out_buf = w_out.request();
+            const auto &w_out_shape = w_out_buf.shape;
+            const auto &w_out_ndim = w_out_buf.ndim;
+            float *ptr_w_out = static_cast<float *>(w_out_buf.ptr);
+            vec_w_out.resize(N_y, std::vector<float>(N_x));
+            if (w_out_ndim == 2 && (size_t)w_out_shape[1] == N_x) {
+                for (size_t i = 0; i < N_y; i++){
+                    for (size_t j = 0; j < N_x; j++){
+                        vec_w_out[i][j] = ptr_w_out[i * N_x + j];
+                    }
+                }
+            } else {
+                std::cout << "w_out: shape error. ndim = " << w_out_ndim << ", shape[0]=" << w_out_shape[0] << ", shape[1]=" << w_out_shape[1] << std::endl;
+            }
         }
 
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha){
@@ -224,8 +395,10 @@ class ESN{
             // vec_w_out
             std::cout << "vec_w_out" << std::endl;
             for (size_t i = 0; i < N_y; i++){
+                //std::cout << "i = " << i << std::endl;
                 for (size_t j = 0; j < N_x; j++)
                 {
+                    //std::cout << "j = " << j << std::endl;
                     std::cout << vec_w_out[i][j] << " ";
                 }
                 std::cout << std::endl;
@@ -317,6 +490,8 @@ class ESN{
 PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
+        .def(py::init<size_t, size_t, size_t, float, float, float, float>())
+        .def("SetInput", &ESN::SetInput)
         .def("Print", &ESN::Print)
         .def("Predict", &ESN::Predict)
         .def("Randnumer_test", &ESN::Randnumer_test)

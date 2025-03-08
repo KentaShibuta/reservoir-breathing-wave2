@@ -108,6 +108,9 @@ def Predict(input_data, model_file):
 
     N_x = Wout.shape[1]
     n_step = input.shape[1] if input.ndim == 2 else input.shape[2]
+    density = 0.1
+    input_scale = 1.0
+    rho = 0.9
     leaking_rate = 1.0
     model = ESN(n_step, input.shape[0], N_x, density=0.1,
                 input_scale=1.0, rho=0.9, leaking_rate= leaking_rate)
@@ -118,8 +121,10 @@ def Predict(input_data, model_file):
     #np.savetxt('./predict_py.csv', Y, delimiter=',')
 
     # call c++ module
-    model_Win, model_x, model_W, model_Wout =  model.Get()
-    esn_cpp = ESNCpp(input, model_Win, model_W, model_Wout, model_x, leaking_rate)
+    #model_Win, model_x, model_W, model_Wout =  model.Get()
+    #esn_cpp = ESNCpp(input, model_Win, model_W, model_Wout, model_x, leaking_rate)
+    esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
+    esn_cpp.SetInput(input, Wout)
     Y = esn_cpp.Predict()
     np.savetxt('./predict_cpp.csv', Y, delimiter=',')
 
