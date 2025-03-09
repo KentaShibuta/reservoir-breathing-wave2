@@ -1,6 +1,9 @@
 # reservoir-breathing-wave2
 * RSNを用いて、動物の安静時の動画から呼吸数を求めるプログラム
-* 開発環境は、dockerフォルダにて、docker compose up -d を実行してコンテナを起動する
+* 開発環境は、dockerフォルダにて下記コマンドを実行してコンテナを起動する
+   - ```
+     docker compose up -d 
+     ```
 * RSNの学習と推論は、下記文献の付録にあるコードを参考にした
    - リザバーコンピューティング: 時系列パターン認識のための高速機械学習の理論とハードウェア
       - https://www.morikita.co.jp/books/mid/085531
@@ -24,4 +27,10 @@
    - isTrainをFalseにするとESNの推論が実行される
       - デフォルトではリポジトリに保存している学習済みモデルを使用して推論する
 * C++で書き直したESNモジュールのビルド方法
-   - (後ほど記載する)
+   - Dockerコンテナにアタッチした後に、下記コマンドを実行する
+      - ```
+        cd /root/app/src/
+        ```
+      - ```
+        g++ -O3 -Wall -shared -std=c++23 -I /root/app/lib -fopenmp -fPIC -fvisibility=hidden `python3 -m pybind11 --includes` esn.cpp -o esn`python3-config --extension-suffix`
+        ```
