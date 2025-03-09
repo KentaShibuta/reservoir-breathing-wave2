@@ -14,7 +14,7 @@ class ESN{
         std::unique_ptr<std::vector<std::vector<float>>> generate_uniform_random(std::size_t row_size, std::size_t col_size, float scale) {
             uint_fast32_t seed = 0;
             std::mt19937 gen(seed); // メルセンヌ・ツイスター法による生成器
-            std::uniform_real_distribution<float> dist(-1.0 * scale, scale);
+            std::uniform_real_distribution<float> dist(-1.0 * scale, std::nextafter(scale, std::numeric_limits<float>::max()));
         
             auto numbers = std::make_unique<std::vector<std::vector<float>>>(row_size, std::vector<float>(col_size));
             for (std::size_t i = 0; i < row_size; i++) {
@@ -24,7 +24,6 @@ class ESN{
             }
             return numbers;
         }
-
 
         std::unique_ptr<std::vector<std::vector<float>>> generate_normal_distribution(std::size_t row_size, std::size_t col_size, float mean = 0.0, float stddev = 1.0) {
             // 乱数生成器と正規分布設定
@@ -193,7 +192,7 @@ class ESN{
         size_t N_x;
         size_t N_y;
 
-        ESN(size_t n_u, size_t n_y, size_t n_x, float density=0.05, float input_scale=1.0, float rho=0.95, float leaking_rate=1.0){
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate){
             N_u = n_u;
             N_y = n_y;
             N_x = n_x;
@@ -232,7 +231,8 @@ class ESN{
             a_alpha = leaking_rate;
         }
 
-        void SetInput(py::array_t<float> u, py::array_t<float> w_out){
+        void SetInput(py::array_t<float> u, py::array_t<float> w_out, py::array_t<float> w_in){
+        //void SetInput(py::array_t<float> u, py::array_t<float> w_out){
             std::cout << "Start SetInput" << std::endl;
 
             const auto &u_buf = u.request();
@@ -269,6 +269,23 @@ class ESN{
             } else {
                 std::cout << "w_out: shape error. ndim = " << w_out_ndim << ", shape[0]=" << w_out_shape[0] << ", shape[1]=" << w_out_shape[1] << std::endl;
             }
+
+            
+            const auto &w_in_buf = w_in.request();
+            const auto &w_in_shape = w_in_buf.shape;
+            const auto &w_in_ndim = w_in_buf.ndim;
+            float *ptr_w_in = static_cast<float *>(w_in_buf.ptr);
+            vec_w_in.resize(N_x, std::vector<float>(N_u));
+            if (w_in_ndim == 2 && (size_t)w_in_shape[1] == N_u) {
+                for (size_t i = 0; i < N_x; i++){
+                    for (size_t j = 0; j < N_u; j++){
+                        vec_w_in[i][j] = ptr_w_in[i * N_u + j];
+                    }
+                }
+            } else {
+                std::cout << "w_in: shape error. ndim = " << w_in_ndim << ", shape[0]=" << w_in_shape[0] << ", shape[1]=" << w_in_shape[1] << std::endl;
+            }
+            
         }
 
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha){
@@ -420,6 +437,10 @@ class ESN{
         }
 
         py::array_t<float> Predict(){
+            std::cout << "N_x: " << N_x << std::endl;
+            std::cout << "N_u: " << N_u << std::endl;
+            std::cout << "Win size: " << vec_w_in.size() << ", " << vec_w_in[0].size() << std::endl;
+
             std::cout << "Init y" << std::endl;
             py::array_t<float> y({N, N_y});
             
