@@ -6,5 +6,6 @@ services:
          - ../app/src:/root/app/src
          - ../app/data:/root/app/data
          - ../app/model:/root/app/model
+         - ../app/lib:/root/app/lib
       stdin_open: true
       tty: true

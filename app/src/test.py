@@ -60,7 +60,7 @@ y = p.Run()
 print(y)
 """
 
-
+"""
 import numpy as np
 from esn import ESN
 u = np.array([
@@ -100,7 +100,7 @@ print(y)
 
 esn.Randnumer_test(4, 3, 1.0)
 esn.Generate_erdos_renyi_test(10, 0.5)
-
+"""
 """
 y = np.zeros((6, 3), dtype=np.float32)
 for i in range(6):
@@ -118,4 +118,55 @@ for i in range(6):
             y[i] = y_pred
                 
 print(y)
+"""
+
+import numpy as np
+from esn import ESN
+
+N_u = 2
+N_x = 4
+N_y = 3
+density=0.5
+input_scale=1.0
+rho=0.95
+leaking_rate=1.0
+
+u = np.array([
+        [[1.2, 3.4], [7.8, 9.0], [7.8, 9.0]], 
+        [[1.2, 3.4], [7.8, 9.0], [7.8, 9.0]], 
+        [[1.2, 3.4], [7.8, 9.0], [7.8, 9.0]], 
+        [[1.2, 3.4], [7.8, 9.0], [7.8, 9.0]], 
+        [[1.2, 3.4], [7.8, 9.0], [7.8, 9.0]], 
+        [[1.2, 3.4], [7.8, 9.0], [7.8, 9.0]]
+    ], dtype=np.float32)
+
+w_out = np.array([
+        [1.2, 3.4, 5.6, 4.0],
+        [1.2, 3.4, 5.6, 4.0],
+        [1.2, 3.4, 5.6, 4.0],
+    ], dtype=np.float32)
+
+esn = ESN(N_u, N_y, N_x, density, input_scale, rho, leaking_rate)
+esn.SetInput(u, w_out)
+esn.Print()
+
+y = esn.Predict()
+
+print(y)
+
+"""
+import numpy as np
+
+mat = np.array([
+    [0, 0, 0, 1.30172],
+    [0, 0, 0.16971, 0],
+    [-0, 0.467214, 0, -0.437171], 
+    [-0.235993, -0, 1.48135, -0]
+], dtype=np.float32)
+
+print(mat)
+
+eigv_list = np.linalg.eig(mat)[0]
+sp_radius = np.max(np.abs(eigv_list))
+print(sp_radius)
 """
