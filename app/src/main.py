@@ -124,8 +124,8 @@ def Predict(input_data, model_file):
     model_Win, model_x, model_W, model_Wout =  model.Get()
     #esn_cpp = ESNCpp(input, model_Win, model_W, model_Wout, model_x, leaking_rate)
     esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
-    esn_cpp.SetInput(input, Wout, model_Win)
-    Y = esn_cpp.Predict()
+    esn_cpp.SetWout(Wout, model_Win)
+    Y = esn_cpp.Predict(input)
     np.savetxt('./predict_cpp.csv', Y, delimiter=',')
 
     # 結果の可視化

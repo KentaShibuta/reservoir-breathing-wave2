@@ -231,29 +231,9 @@ class ESN{
             a_alpha = leaking_rate;
         }
 
-        void SetInput(py::array_t<float> u, py::array_t<float> w_out, py::array_t<float> w_in){
+        void SetWout(py::array_t<float> w_out, py::array_t<float> w_in){
         //void SetInput(py::array_t<float> u, py::array_t<float> w_out){
-            std::cout << "Start SetInput" << std::endl;
-
-            const auto &u_buf = u.request();
-            const auto &u_shape = u_buf.shape;
-            const auto &u_ndim = u_buf.ndim;
-            N = u_shape[0];
-            N_window = u_shape[1];
-            N_u = u_shape[2];
-            float *ptr_u = static_cast<float *>(u_buf.ptr);
-            vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
-            if (u_ndim == 3) {
-                for (size_t i = 0; i < N; i++){
-                    for (size_t j = 0; j < N_window; j++){
-                        for (size_t k = 0; k < N_u; k++){
-                            vec_u[i][j][k] = ptr_u[i * N_window * N_u + j * N_u + k];
-                        }
-                    }
-                }
-            } else {
-                std::cout << "u: shape error. ndim = " << u_ndim << std::endl;
-            }
+            std::cout << "Start SetWout" << std::endl;
 
             const auto &w_out_buf = w_out.request();
             const auto &w_out_shape = w_out_buf.shape;
@@ -286,6 +266,7 @@ class ESN{
                 std::cout << "w_in: shape error. ndim = " << w_in_ndim << ", shape[0]=" << w_in_shape[0] << ", shape[1]=" << w_in_shape[1] << std::endl;
             }
             
+            std::cout << "End SetWout" << std::endl;
         }
 
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha){
@@ -436,7 +417,27 @@ class ESN{
             std::cout << "N_y = " << N_y << std::endl;
         }
 
-        py::array_t<float> Predict(){
+        py::array_t<float> Predict(py::array_t<float> u){
+            const auto &u_buf = u.request();
+            const auto &u_shape = u_buf.shape;
+            const auto &u_ndim = u_buf.ndim;
+            N = u_shape[0];
+            N_window = u_shape[1];
+            //N_u = u_shape[2];
+            float *ptr_u = static_cast<float *>(u_buf.ptr);
+            vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
+            if (u_ndim == 3) {
+                for (size_t i = 0; i < N; i++){
+                    for (size_t j = 0; j < N_window; j++){
+                        for (size_t k = 0; k < N_u; k++){
+                            vec_u[i][j][k] = ptr_u[i * N_window * N_u + j * N_u + k];
+                        }
+                    }
+                }
+            } else {
+                std::cout << "u: shape error. ndim = " << u_ndim << std::endl;
+            }
+
             std::cout << "N_x: " << N_x << std::endl;
             std::cout << "N_u: " << N_u << std::endl;
             std::cout << "Win size: " << vec_w_in.size() << ", " << vec_w_in[0].size() << std::endl;
@@ -444,7 +445,7 @@ class ESN{
             std::cout << "Init y" << std::endl;
             py::array_t<float> y({N, N_y});
             
-            std::cout << "Predict Running" << std::endl;
+            std::cout << "Running Predict" << std::endl;
             size_t n = 0;
             for (const auto& input : vec_u){
                 size_t step = 0;
@@ -468,7 +469,84 @@ class ESN{
                 n++;
             }
 
+            std::cout << "Finish Predict" << std::endl;
+
             return y;
+        }
+
+        py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d){
+            // read u
+            const auto &u_buf = u.request();
+            const auto &u_shape = u_buf.shape;
+            const auto &u_ndim = u_buf.ndim;
+            N = u_shape[0];
+            N_window = u_shape[1];
+            //N_u = u_shape[2];
+            float *ptr_u = static_cast<float *>(u_buf.ptr);
+            vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
+            if (u_ndim == 3) {
+                for (size_t i = 0; i < N; i++){
+                    for (size_t j = 0; j < N_window; j++){
+                        for (size_t k = 0; k < N_u; k++){
+                            vec_u[i][j][k] = ptr_u[i * N_window * N_u + j * N_u + k];
+                        }
+                    }
+                }
+            } else {
+                std::cout << "u: shape error. ndim = " << u_ndim << std::endl;
+            }
+
+            // read d
+            const auto &d_buf = d.request();
+            const auto &d_shape = d_buf.shape;
+            const auto &d_ndim = d_buf.ndim;
+            N_d = d_shape[0];
+            float *ptr_d = static_cast<float *>(d_buf.ptr);
+            auto vec_d = std::make_unique<std::vector<float>>(N_d, 0.0f);
+            if (d_ndim == 1 && (size_t)d_shape[0] == N_d) {
+                for (size_t i = 0; i < N_d; i++){
+                    vec_d[i] = ptr_d[i];
+                }
+            } else {
+                std::cout << "d: shape error. ndim = " << d_ndim << ", shape[0]=" << d_shape[0] << std::endl;
+            }
+
+            auto y = std::make_unique<std::vector<float>>(N, 0.0f);
+
+            // 時間発展
+            std::cout << "Running Train" << std::endl;
+            size_t n = 0;
+            for (const auto& input : vec_u){
+                size_t step = 0;
+                for (const auto& input_step : input){
+                    auto x_in = dot(vec_w_in, input_step);
+                    auto w_dot_x = dot(vec_w, vec_x);
+
+                    // リザバー状態ベクトルの更新
+                    for (size_t i = 0; i < N_x; i++){
+                        vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]);
+                    }
+
+                    step++;
+                }
+
+                // 目標値
+                float d = vec_d[n];
+
+                // 学習器
+                if (n > 0){
+
+                }
+
+                auto y_pred = dot(vec_w_out, vec_x);
+                for (size_t j = 0; j < N_y; j++){
+                    *y.mutable_data(n, j) = (*y_pred)[j];
+                }
+
+                n++;
+            }
+
+            std::cout << "Finish Train" << std::endl;
         }
     
         std::unique_ptr<std::vector<float>> dot (const std::vector<std::vector<float>> &mat, const std::vector<float> &vec){
@@ -512,7 +590,7 @@ PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
         .def(py::init<size_t, size_t, size_t, float, float, float, float>())
-        .def("SetInput", &ESN::SetInput)
+        .def("SetWout", &ESN::SetWout)
         .def("Print", &ESN::Print)
         .def("Predict", &ESN::Predict)
         .def("Randnumer_test", &ESN::Randnumer_test)
