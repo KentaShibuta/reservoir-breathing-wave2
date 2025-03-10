@@ -500,12 +500,12 @@ class ESN{
             const auto &d_buf = d.request();
             const auto &d_shape = d_buf.shape;
             const auto &d_ndim = d_buf.ndim;
-            N_d = d_shape[0];
+            size_t N_d = d_shape[0];
             float *ptr_d = static_cast<float *>(d_buf.ptr);
             auto vec_d = std::make_unique<std::vector<float>>(N_d, 0.0f);
             if (d_ndim == 1 && (size_t)d_shape[0] == N_d) {
                 for (size_t i = 0; i < N_d; i++){
-                    vec_d[i] = ptr_d[i];
+                    (*vec_d)[i] = ptr_d[i];
                 }
             } else {
                 std::cout << "d: shape error. ndim = " << d_ndim << ", shape[0]=" << d_shape[0] << std::endl;
@@ -531,20 +531,23 @@ class ESN{
                 }
 
                 // 目標値
-                float d = vec_d[n];
+                float d = (*vec_d)[n];
 
                 // 学習器
                 if (n > 0){
-
+                    // optimizerの更新
                 }
 
                 auto y_pred = dot(vec_w_out, vec_x);
-                for (size_t j = 0; j < N_y; j++){
-                    *y.mutable_data(n, j) = (*y_pred)[j];
-                }
+                //for (size_t j = 0; j < N_y; j++){
+                (*y)[n] = (*y_pred)[n];
+                //}
 
                 n++;
             }
+
+            // yをnumpy型で返す
+            // return;
 
             std::cout << "Finish Train" << std::endl;
         }
