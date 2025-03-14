@@ -119,7 +119,7 @@ for i in range(6):
                 
 print(y)
 """
-
+"""
 import numpy as np
 from esn import ESN
 
@@ -153,6 +153,7 @@ esn.Print()
 y = esn.Predict()
 
 print(y)
+"""
 
 """
 import numpy as np
@@ -170,3 +171,18 @@ eigv_list = np.linalg.eig(mat)[0]
 sp_radius = np.max(np.abs(eigv_list))
 print(sp_radius)
 """
+
+import numpy as np
+x = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+x = np.reshape(x, (-1, 1))
+print("x:")
+print(x)
+
+print("xt:")
+print(x.T)
+
+print("x * x.T:")
+
+x_xt = np.dot(x, x.T)
+
+print(x_xt)

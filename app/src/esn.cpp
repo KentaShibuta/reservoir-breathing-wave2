@@ -43,16 +43,16 @@ class ESN{
         }
 
         // std::unique_ptr<std::vector<std::vector<float>>> を Eigen::MatrixXf に変換
-        Eigen::MatrixXf uniquePtrToEigenMatrix(const std::unique_ptr<std::vector<std::vector<float>>>& ptr) {
-            if (!ptr || ptr->empty()) {
+        Eigen::MatrixXf vectorMatrixToEigenMatrix(const std::vector<std::vector<float>>& vectorMatrix) {
+            if (vectorMatrix.empty()) {
                 throw std::invalid_argument("入力が空です。");
             }
 
-            int rows = ptr->size();          // 行数
-            int cols = ptr->at(0).size();    // 列数
+            int rows = vectorMatrix.size();          // 行数
+            int cols = vectorMatrix[0].size();    // 列数
 
             // 列数が揃っているか確認
-            for (const auto& row : *ptr) {
+            for (const auto& row : vectorMatrix) {
                 if (row.size() != static_cast<size_t>(cols)) {
                     throw std::invalid_argument("全ての行の列数が一致しません。");
                 }
@@ -62,11 +62,28 @@ class ESN{
             
             for (int i = 0; i < rows; ++i) {
                 for (int j = 0; j < cols; ++j) {
-                    eigenMat(i, j) = (*ptr)[i][j];
+                    eigenMat(i, j) = vectorMatrix[i][j];
                 }
             }
 
             return eigenMat;
+        }
+
+        // Eigen::MatrixXf を std::unique_ptr<std::vector<std::vector<float>>>  に変換
+        std::unique_ptr<std::vector<std::vector<float>>> eigenMatrixToUniquePtr(const Eigen::MatrixXf& matrix) {
+            // 行列のサイズを取得
+            int rows = matrix.rows();
+            int cols = matrix.cols();
+        
+            // std::unique_ptrで2次元ベクトルを作成
+            auto vec = std::make_unique<std::vector<std::vector<float>>>(rows);
+        
+            // EigenのMatrixXfからstd::vectorにデータをコピー
+            for (int i = 0; i < rows; ++i) {
+                (*vec)[i] = std::vector<float>(matrix.col(i).data(), matrix.col(i).data() + cols);
+            }
+        
+            return vec;
         }
 
         // ランダムなErdos-Renyiグラフを生成
@@ -133,7 +150,7 @@ class ESN{
             // Eigen::MatrixXf に変換
             float sp_radius = 0.0;
             try {
-                Eigen::MatrixXf eigenMat = uniquePtrToEigenMatrix(connection_matrix);
+                Eigen::MatrixXf eigenMat = vectorMatrixToEigenMatrix(*connection_matrix);
                 //std::cout << "Eigen::MatrixXf:\n" << eigenMat << std::endl;
 
                 
@@ -511,11 +528,17 @@ class ESN{
                 std::cout << "d: shape error. ndim = " << d_ndim << ", shape[0]=" << d_shape[0] << std::endl;
             }
 
-            auto y = std::make_unique<std::vector<float>>(N, 0.0f);
+            //auto y = std::make_unique<std::vector<float>>(N, 0.0f);
+            py::array_t<float> y(N);
 
             // 時間発展
             std::cout << "Running Train" << std::endl;
             size_t n = 0;
+
+            // N_x行、N_x列
+            auto X_XT = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(N_x, 0.0f));
+            auto D_XT = std::make_unique<std::vector<std::vector<float>>>(N_y, std::vector<float>(N_x, 0.0f));
+
             for (const auto& input : vec_u){
                 size_t step = 0;
                 for (const auto& input_step : input){
@@ -531,25 +554,48 @@ class ESN{
                 }
 
                 // 目標値
-                float d = (*vec_d)[n];
+                auto d = (*vec_d)[n];
+                auto x = vec_x;
+
 
                 // 学習器
                 if (n > 0){
                     // optimizerの更新
+                    // dとvec_x[i]を使って計算する
+                    for (size_t i = 0; i < N_x; i++){
+                        for (size_t j = 0; j < N_x; j++){
+                            (*X_XT)[i][j] += x[i] * x[j];
+                        }
+                    }
+
+                    for (size_t i = 0; i < N_y; i++){
+                        for (size_t j = 0; j < N_x; j++){
+                            (*D_XT)[i][j] += d * x[j];
+                        }
+                    }
                 }
 
                 auto y_pred = dot(vec_w_out, vec_x);
                 //for (size_t j = 0; j < N_y; j++){
-                (*y)[n] = (*y_pred)[n];
+                //(*y)[n] = (*y_pred)[n];
+                *y.mutable_data(n) = (*y_pred)[n];
                 //}
 
                 n++;
             }
 
-            // yをnumpy型で返す
-            // return;
+            // 学習済みの出力結合重み行列を設定
+            // X_XTの疑似逆行列を求める
+            auto inv_X_XT = GetInverse(*X_XT);
+            // D_XTとX_XTの疑似逆行列の積を計算してWoutを求める
+            // ここで計算したWoutは、別途Woutを取得するメソッドを使用してC++からPythonに値を渡し
+            // Python側で.pickleファイルとして書き出す
+
 
             std::cout << "Finish Train" << std::endl;
+
+            // yをnumpy型で返す
+            return y;
         }
     
         std::unique_ptr<std::vector<float>> dot (const std::vector<std::vector<float>> &mat, const std::vector<float> &vec){
@@ -565,6 +611,32 @@ class ESN{
 
             return y;
         }
+
+        
+
+        // 擬似逆行列を求める
+        std::unique_ptr<std::vector<std::vector<float>>> GetInverse (const std::vector<std::vector<float>>& mat){
+        //std::unique_ptr<std::vector<std::vector<float>>> GetInverse (const std::unique_ptr<std::vector<std::vector<float>>>& mat){
+            //size_t rowSize = mat.size();
+            //size_t colSize = mat[0].size();
+
+            //auto inv = std::make_unique<std::vector<std::vector<float>>>(rowSize, std::vector<float>(colSize, 0.0f));
+
+            // matをEigenに変換
+            Eigen::MatrixXf eigenMat = vectorMatrixToEigenMatrix(mat);
+
+            // 特異値分解
+            Eigen::JacobiSVD<Eigen::MatrixXf> svd(eigenMat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            Eigen::VectorXf s = svd.singularValues();
+            s = s.array().inverse();
+
+            // 擬似逆行列を計算
+            Eigen::MatrixXf Ainv = svd.matrixV() * s.asDiagonal() * svd.matrixU().transpose();
+
+            // 擬似逆行列をvectorに変換
+            return eigenMatrixToUniquePtr(Ainv);
+        }
+
 
         void Randnumer_test (size_t row_size, size_t col_size, float scale){
             auto numbers = generate_uniform_random(row_size, col_size, scale);
