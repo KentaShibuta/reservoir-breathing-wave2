@@ -14,17 +14,35 @@ def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_i
     # ENSモデル
     N_x = 500
     n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
-    model = ESN(n_step, train_labels.shape[0], N_x, density=0.1,
-                input_scale=1.0, rho=0.9, leaking_rate= 1.0)
+    density = 0.1
+    input_scale = 1.0
+    rho = 0.9
+    leaking_rate = 1.0
+    print("N_y: " + str(train_labels.shape[0]))
+    model = ESN(n_step, train_labels.shape[0], N_x, density=density,
+                input_scale=input_scale, rho=rho, leaking_rate=leaking_rate)
     
     # 学習（線形回帰）
+    # python
+    ######
     Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
+    ######
+
+    # cpp
+    ######
+    #model_Win, model_x, model_W, model_Wout =  model.Get()
+    #esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
+    #esn_cpp.Print()
+    #Y_learning = esn_cpp.Train(train, train_labels)
+    ######
 
     # 学習済みモデルをファイルに保存する
     now = datetime.datetime.now()
     model_file = "../model/"+ now.strftime('%Y%m%d_%H%M%S') + '.pickle'
     with open(model_file, mode='wb') as fo:
-        pickle.dump(model.get_Wout(), fo)
+        pickle.dump(model.get_Wout(), fo) # python Ver
+        #cpp_w_out = esn_cpp.GetWout()
+        #pickle.dump(cpp_w_out, fo) # cpp Ver
     
     """
     if show == True:
@@ -126,7 +144,7 @@ def Predict(input_data, model_file):
     esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
     esn_cpp.SetWout(Wout, model_Win)
     Y = esn_cpp.Predict(input)
-    np.savetxt('./predict_cpp.csv', Y, delimiter=',')
+    #np.savetxt('./predict_cpp.csv', Y, delimiter=',')
 
     # 結果の可視化
     # オリジナルデータを可視化
@@ -155,6 +173,7 @@ def main():
         input_data = analyzer.GetColor(show=True, save=False, isTrain=isTrain)
 
         model_file = "/root/app/model/20250305_181243.pickle"
+        #model_file = "/root/app/model/20250315_134339.pickle"
         Predict(input_data, model_file)
 
     end = time.perf_counter() #計測終了
