@@ -11,34 +11,35 @@ import time
 np.random.seed(seed=0)
 
 def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show = False):
-    # ENSモデル
+    # ESNモデル
     N_x = 500
     n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
     density = 0.1
     input_scale = 1.0
     rho = 0.9
     leaking_rate = 1.0
-    print("N_y: " + str(train_labels.shape[0]))
-    model = ESN(n_step, train_labels.shape[0], N_x, density=density,
+    model = ESN(n_step, 1, N_x, density=density,
                 input_scale=input_scale, rho=rho, leaking_rate=leaking_rate)
     
     # 学習（線形回帰）
     # call python module
-    #Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
+    Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
 
+    """
     # call c++ module
     model_Win, model_x, model_W, model_Wout =  model.Get()
     esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
     esn_cpp.Print()
     Y_learning = esn_cpp.Train(train, train_labels)
+    """
 
     # 学習済みモデルをファイルに保存する
     now = datetime.datetime.now()
     model_file = "../model/"+ now.strftime('%Y%m%d_%H%M%S') + '.pickle'
     with open(model_file, mode='wb') as fo:
-        #pickle.dump(model.get_Wout(), fo) # python Ver
-        cpp_w_out = esn_cpp.GetWout()
-        pickle.dump(cpp_w_out, fo) # cpp Ver
+        pickle.dump(model.get_Wout(), fo) # python Ver
+        #cpp_w_out = esn_cpp.GetWout()
+        #pickle.dump(cpp_w_out, fo) # cpp Ver
     
     """
     if show == True:
@@ -66,7 +67,7 @@ def Predict_test(train, train_labels, train_labels_id, test, test_labels, test_l
     # ENSモデル
     N_x = Wout.shape[1]
     n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
-    model = ESN(n_step, train_labels.shape[0], N_x, density=0.1,
+    model = ESN(n_step, 1, N_x, density=0.1,
                 input_scale=1.0, rho=0.9, leaking_rate= 1.0)
     model.set_Wout(Wout)
 
@@ -106,7 +107,7 @@ def create_model(input_data, show):
     train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch(show=False, isTrain=True)
 
     model_file = Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show)
-    #Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
+    Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
 
     print(f"created model file: {model_file}")
     return model_file
@@ -114,6 +115,9 @@ def create_model(input_data, show):
 def Predict(input_data, model_file):
     splitter =  data_splitter(input_data, test_size=0, isTrain=False)
     input = splitter.create_batch(show=False, isTrain=False)
+    print("python N: " + str(input.shape[0]))
+    print("python N_window: " + str(input.shape[1]))
+    print("python N_u: " + str(input.shape[2]))
     feature = 1# 入力データの時間幅の何倍の時間幅を予測するか
 
     ### pickleで保存したファイルを読み込み
@@ -126,7 +130,7 @@ def Predict(input_data, model_file):
     input_scale = 1.0
     rho = 0.9
     leaking_rate = 1.0
-    model = ESN(n_step, input.shape[0], N_x, density=0.1,
+    model = ESN(n_step, 1, N_x, density=0.1,
                 input_scale=1.0, rho=0.9, leaking_rate= leaking_rate)
     model.set_Wout(Wout)
 

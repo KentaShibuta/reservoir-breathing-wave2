@@ -90,6 +90,7 @@ class ESN{
         ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate){
             m_matlib = SMatrix();
             N_u = n_u;
+            std::cout << "init N_u: " << N_u << std::endl;
             N_y = n_y;
             N_x = n_x;
 
@@ -507,18 +508,19 @@ class ESN{
 #endif
 };
 
-/*
+
 #ifdef TEST
 TEST_CASE("[test] get inverse matrix") {
-    ESN esn = ESN();
+    std::cout << "[START] get inverse matrix" << std::endl;
+    SMatrix matlib = SMatrix();
 
     std::vector<std::vector<float>> matrix = {
-        {1.0f, 2.0f, 0.0f},
-        {2.0f, 2.0f, 1.0f},
-        {1.0f, 1.0f, 0.0f}
+        {1.0f, -1.0f},
+        {-1.0f, 2.0f},
+        {2.0f, -1.0f}
     };
 
-    auto inv = esn.GetInverse(matrix);
+    auto inv = matlib.GetInverse(matrix);
 
     for (const auto &row : *inv){
         for (const auto &elem : row){
@@ -526,12 +528,12 @@ TEST_CASE("[test] get inverse matrix") {
         }
         std::cout << std::endl;
     }
+    std::cout << "[PASS] get inverse matrix" << std::endl;
 }
-*/
 
-/*
 TEST_CASE("[test] matrix mul") {
-    ESN esn = ESN();
+    std::cout << "[START] matrix mul" << std::endl;
+    SMatrix matlib = SMatrix();
 
     std::vector<std::vector<float>> A = {
         {1.0f, 2.0f, 3.0f},
@@ -545,7 +547,7 @@ TEST_CASE("[test] matrix mul") {
         {17.0f, 18.0f, 19.0f}
     };
 
-    auto mul = esn.matMul(A, B);
+    auto mul = matlib.matMul(A, B);
 
     for (const auto &row : *mul){
         for (const auto &elem : row){
@@ -553,9 +555,9 @@ TEST_CASE("[test] matrix mul") {
         }
         std::cout << std::endl;
     }
+    std::cout << "[PASS] matrix mul" << std::endl;
 }
 #endif
-*/
 
 #ifdef USE_PYBIND
 PYBIND11_MODULE(esn, m){

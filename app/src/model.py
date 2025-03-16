@@ -163,6 +163,7 @@ class ESN:
         self.Output = Output(N_x, N_y)
         self.N_u = N_u
         self.N_y = N_y
+        print("N_y: " + str(self.N_y))
         self.N_x = N_x
 
     # バッチ学習
