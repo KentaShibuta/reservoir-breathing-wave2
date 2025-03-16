@@ -3,7 +3,7 @@
 # =============================
 CC := g++
 CFLAGS := -O3 -Wall -std=c++23 -fopenmp
-INCLUDES := -I /root/app/lib/eigen3
+INCLUDES := -I /root/app/lib/eigen3 -I /root/app/src/cppmodule/include
 PY_CFLAGS := -shared -fPIC -fvisibility=hidden $(shell python3 -m pybind11 --includes) -DUSE_PYBIND
 TEST_INCLUDES := -I/root/app/lib/doctest
 TEST_CFLAGS := -DTEST
@@ -12,7 +12,7 @@ EXT_SUFFIX := $(shell python3-config --extension-suffix)
 # =============================
 # ソースファイル
 # =============================
-SRC := esn.cpp
+SRC := /root/app/src/cppmodule/src/esn.cpp /root/app/src/cppmodule/src/SMatrix.cpp
 #TEST_SRC := main.cpp  # doctest用のテストファイル
 
 # =============================
@@ -37,7 +37,7 @@ cpp: $(SRC)
 # Python拡張モジュールビルド
 # =============================
 python: $(SRC)
-	$(CC) $(CFLAGS) $(PY_CFLAGS) $(INCLUDES) $(SRC) -o $(TARGET_PY)
+	$(CC) $(CFLAGS) $(PY_CFLAGS) $(INCLUDES) -o $(TARGET_PY) $(SRC)
 
 # =============================
 # Doctestビルド＆実行

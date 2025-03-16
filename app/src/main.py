@@ -5,7 +5,7 @@ from data_splitter import data_splitter
 import pickle
 import datetime
 from movie_analyzer import MovieAnalyzer
-from esn import ESN as ESNCpp
+from cppmodule.esn import ESN as ESNCpp
 import time
 
 np.random.seed(seed=0)
@@ -23,26 +23,22 @@ def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_i
                 input_scale=input_scale, rho=rho, leaking_rate=leaking_rate)
     
     # 学習（線形回帰）
-    # python
-    ######
-    Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
-    ######
+    # call python module
+    #Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
 
-    # cpp
-    ######
-    #model_Win, model_x, model_W, model_Wout =  model.Get()
-    #esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
-    #esn_cpp.Print()
-    #Y_learning = esn_cpp.Train(train, train_labels)
-    ######
+    # call c++ module
+    model_Win, model_x, model_W, model_Wout =  model.Get()
+    esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
+    esn_cpp.Print()
+    Y_learning = esn_cpp.Train(train, train_labels)
 
     # 学習済みモデルをファイルに保存する
     now = datetime.datetime.now()
     model_file = "../model/"+ now.strftime('%Y%m%d_%H%M%S') + '.pickle'
     with open(model_file, mode='wb') as fo:
-        pickle.dump(model.get_Wout(), fo) # python Ver
-        #cpp_w_out = esn_cpp.GetWout()
-        #pickle.dump(cpp_w_out, fo) # cpp Ver
+        #pickle.dump(model.get_Wout(), fo) # python Ver
+        cpp_w_out = esn_cpp.GetWout()
+        pickle.dump(cpp_w_out, fo) # cpp Ver
     
     """
     if show == True:
@@ -110,7 +106,7 @@ def create_model(input_data, show):
     train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch(show=False, isTrain=True)
 
     model_file = Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show)
-    Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
+    #Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
 
     print(f"created model file: {model_file}")
     return model_file
@@ -172,8 +168,8 @@ def main():
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=True, save=False, isTrain=isTrain)
 
-        model_file = "/root/app/model/20250305_181243.pickle"
-        #model_file = "/root/app/model/20250315_134339.pickle"
+        #model_file = "/root/app/model/20250305_181243.pickle"
+        model_file = "/root/app/model/20250316_035439.pickle"
         Predict(input_data, model_file)
 
     end = time.perf_counter() #計測終了
