@@ -172,6 +172,7 @@ sp_radius = np.max(np.abs(eigv_list))
 print(sp_radius)
 """
 
+"""
 import numpy as np
 x = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
 x = np.reshape(x, (-1, 1))
@@ -185,4 +186,55 @@ print("x * x.T:")
 
 x_xt = np.dot(x, x.T)
 
-print(x_xt)
+print(x_xt)"
+"""
+import networkx as nx
+
+def make_connection(N_x, density, rho, seed=0):
+        # Erdos-Renyiランダムグラフ
+        m = int(N_x*(N_x-1)*density/2)  # 総結合数
+        G = nx.gnm_random_graph(N_x, m, seed)
+
+        # 行列への変換(結合構造のみ）
+        connection = nx.to_numpy_array(G)
+        W = np.array(connection)
+
+        # 非ゼロ要素を一様分布に従う乱数として生成
+        rec_scale = 1.0
+        np.random.seed(seed=seed)
+        W *= np.random.uniform(-rec_scale, rec_scale, (N_x, N_x))
+
+        # スペクトル半径の計算
+        eigv_list = np.linalg.eig(W)[0]
+        sp_radius = np.max(np.abs(eigv_list))
+
+        # 指定のスペクトル半径rhoに合わせてスケーリング
+        W *= rho / sp_radius
+
+        return W
+
+import numpy as np
+N_x = 10
+N_u = 15
+N_y = 1
+input_scale = 1.0
+density = 0.1
+rho = 0.9
+seed = 0
+
+np.random.seed(seed=seed)
+w_in = np.random.uniform(-input_scale, input_scale, (N_x, N_u))
+w = make_connection(N_x, density, rho)
+w_out = np.random.normal(size=(N_y, N_x))
+
+print("[result] w_in")
+print(w_in.shape)
+print(w_in)
+
+print("[result] w")
+print(w.shape)
+print(w)
+
+print("[result] w_out")
+print(w_out.shape)
+print(w_out)

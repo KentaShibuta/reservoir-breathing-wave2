@@ -29,6 +29,8 @@ def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_i
     # call c++ module
     model_Win, model_x, model_W, model_Wout =  model.Get()
     esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
+    #esn_cpp.SetW(model_W)
+    #esn_cpp.SetWout(model_Wout, model_Win)
     esn_cpp.Print()
     Y_learning = esn_cpp.Train(train, train_labels)
     """
@@ -37,9 +39,13 @@ def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_i
     now = datetime.datetime.now()
     model_file = "../model/"+ now.strftime('%Y%m%d_%H%M%S') + '.pickle'
     with open(model_file, mode='wb') as fo:
-        pickle.dump(model.get_Wout(), fo) # python Ver
-        #cpp_w_out = esn_cpp.GetWout()
-        #pickle.dump(cpp_w_out, fo) # cpp Ver
+        pcl_w_out = model.get_Wout() # python Ver
+        #pcl_w_out = esn_cpp.GetWout() # cpp Ver
+
+        print("python Wout")
+        print(pcl_w_out.shape)
+        print(pcl_w_out)
+        pickle.dump(pcl_w_out, fo)
     
     """
     if show == True:
@@ -107,7 +113,7 @@ def create_model(input_data, show):
     train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch(show=False, isTrain=True)
 
     model_file = Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show)
-    Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
+    #Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
 
     print(f"created model file: {model_file}")
     return model_file
@@ -142,7 +148,9 @@ def Predict(input_data, model_file):
     model_Win, model_x, model_W, model_Wout =  model.Get()
     #esn_cpp = ESNCpp(input, model_Win, model_W, model_Wout, model_x, leaking_rate)
     esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
-    esn_cpp.SetWout(Wout, model_Win)
+    #esn_cpp.SetWout(Wout, model_Win)
+    esn_cpp.SetWout(Wout)
+    esn_cpp.SetWin(model_Win)
     Y = esn_cpp.Predict(input)
     #np.savetxt('./predict_cpp.csv', Y, delimiter=',')
 

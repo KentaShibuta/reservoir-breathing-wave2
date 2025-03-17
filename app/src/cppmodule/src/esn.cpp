@@ -22,47 +22,6 @@ class ESN{
     private:
         SMatrix m_matlib;
 
-        std::unique_ptr<std::vector<std::vector<float>>> make_connection_mat(size_t N_x, float density, float rho) {
-            auto connection_matrix = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(N_x));
-            auto w1 = m_matlib.generate_erdos_renyi(N_x, density);
-            auto w2 = m_matlib.generate_uniform_random(N_x, N_x, 1.0);
-
-            #pragma omp parallel for
-            for (size_t i = 0; i < N_x; i++){
-                for (size_t j = 0; j < N_x; j++){
-                    (*connection_matrix)[i][j] = (*w1)[i][j] * (*w2)[i][j];
-                }
-            }
-
-            // Eigen::MatrixXf に変換
-            float sp_radius = 0.0;
-            try {
-                Eigen::MatrixXf eigenMat = m_matlib.vectorMatrixToEigenMatrix(*connection_matrix);
-                
-                Eigen::EigenSolver<Eigen::MatrixXf> solver(eigenMat);
-                Eigen::VectorXcf eigenvalues = solver.eigenvalues();
-
-                for (size_t i = 0; i < (size_t)eigenvalues.size(); ++i) {
-                    float absVal = std::abs(eigenvalues[i]);  // 固有値の絶対値
-                    if (absVal > sp_radius) {
-                        sp_radius = absVal;
-                    }
-                } 
-
-            } catch (const std::exception& e) {
-                std::cerr << "エラー: " << e.what() << std::endl;
-            }
-
-            #pragma omp parallel for
-            for (size_t i = 0; i < N_x; i++){
-                for (size_t j = 0; j < N_x; j++){
-                    (*connection_matrix)[i][j] *= (rho / (1.0 * sp_radius));
-                }
-            }
-
-            return connection_matrix;
-        }
-
         void set_Wout (const std::vector<std::vector<float>>& mat){
             size_t row_size = mat.size();
             size_t col_size = mat[0].size();
@@ -353,17 +312,36 @@ class ESN{
             const auto &d_buf = d.request();
             const auto &d_shape = d_buf.shape;
             const auto &d_ndim = d_buf.ndim;
-            size_t N_d = d_shape[0];
+            //size_t N_d = d_shape[0];
             float *ptr_d = static_cast<float *>(d_buf.ptr);
-            auto vec_d = std::make_unique<std::vector<float>>(N_d, 0.0f);
-            if (d_ndim == 1 && (size_t)d_shape[0] == N_d) {
-                for (size_t i = 0; i < N_d; i++){
+            auto vec_d = std::make_unique<std::vector<float>>(N, 0.0f);
+            if (d_ndim == 1 && (size_t)d_shape[0] == N) {
+                for (size_t i = 0; i < N; i++){
                     (*vec_d)[i] = ptr_d[i];
                 }
             } else {
                 std::cout << "d: shape error. ndim = " << d_ndim << ", shape[0]=" << d_shape[0] << std::endl;
             }
-            std::cout << "end reading U" << std::endl;
+            std::cout << "end reading D" << std::endl;
+
+            /*
+            std::cout << "vec_d" << std::endl;
+            for (size_t i = 0; i < N; i++){
+                    std::cout << (*vec_d)[i] << " ";
+            }
+            std::cout << std::endl;
+            */
+
+            /*
+            std::cout << "vec_w_in" << std::endl;
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_u; j++){
+                    std::cout << vec_w_in[i][j] << " ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+            */
 
             //auto y = std::make_unique<std::vector<float>>(N, 0.0f);
             py::array_t<float> y(N);
@@ -377,11 +355,25 @@ class ESN{
             auto D_XT = std::make_unique<std::vector<std::vector<float>>>(N_y, std::vector<float>(N_x, 0.0f));
 
             for (const auto& input : vec_u){
-                std::cout << "n:" << n << std::endl;
+                //std::cout << "n:" << n << std::endl;
                 size_t step = 0;
 
-                std::cout << "start updating vec_x" << std::endl;
-                for (const auto& input_step : input){
+                /*
+                if (n == 0 || n == N-1){
+                    std::cout << "input n: " << n << std::endl;
+                    std::cout << "N_window: " << N_window << std::endl;
+                    std::cout << "N_u: " << N_u << std::endl;
+                    for (size_t i = 0; i < N_window; i++){
+                        for (size_t j = 0; j < N_u; j++){
+                            std::cout << input[i][j] << " ";
+                        }
+                    }
+                    std::cout << std::endl;
+                }
+                */
+
+                //std::cout << "start updating vec_x" << std::endl;
+                for (const auto& input_step : input){;
                     auto x_in = m_matlib.dot(vec_w_in, input_step);
                     auto w_dot_x = m_matlib.dot(vec_w, vec_x);
 
@@ -392,14 +384,14 @@ class ESN{
 
                     step++;
                 }
-                std::cout << "end updating vec_x" << std::endl;
+                //std::cout << "end updating vec_x" << std::endl;
 
                 // 目標値
                 //auto d = (*vec_d)[n];
                 //auto x = vec_x;
 
                 // 学習器
-                std::cout << "start updating X_XT and D_XT" << std::endl;
+                //std::cout << "start updating X_XT and D_XT" << std::endl;
                 if (n > 0){
                     // optimizerの更新
                     // dとvec_x[i]を使って計算する
@@ -415,17 +407,17 @@ class ESN{
                         }
                     }
                 }
-                std::cout << "end updating X_XT and D_XT" << std::endl;
+                //std::cout << "end updating X_XT and D_XT" << std::endl;
 
-                std::cout << "start calculation y" << std::endl;
+                //std::cout << "start calculation y" << std::endl;
                 //auto y_pred = dot(vec_w_out, vec_x);
-                std::cout << "end calculation y" << std::endl;
+                //std::cout << "end calculation y" << std::endl;
                 /*
                 *y.mutable_data(n) = (*y_pred)[n];
                 */
                 n++;
 
-                std::cout << "end n:" << n-1 << std::endl;
+                //std::cout << "end n:" << n-1 << std::endl;
             }
 
             std::cout << "start updating Wout" << std::endl;
@@ -433,8 +425,43 @@ class ESN{
             // X_XTの疑似逆行列を求める
             auto inv_X_XT = m_matlib.GetInverse(*X_XT);
 
+            /*
+            std::cout << "D_XT" << std::endl;
+            for (size_t i = 0; i < N_y; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    std::cout << (*D_XT)[i][j] << " ";
+                }
+                std::cout << std::endl;
+            }
+            */
+
+            /*
+            std::cout << "inv_X_XT" << std::endl;
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    std::cout << (*inv_X_XT)[i][j] << " ";
+                }
+                std::cout << std::endl;
+            }
+            */
+
             // D_XTとX_XTの疑似逆行列の積を計算してWoutを求める
             auto mul = m_matlib.matMul(*D_XT, *inv_X_XT);
+
+            std::cout << "cpp Wout" << std::endl;
+            for (size_t i = 0; i < N_x; i++){
+                std::cout << (*mul)[0][i] << " ";
+            }
+            std::cout << std::endl;
+
+            /*
+            for (auto &row : *mul){
+                for (auto &elem : row){
+                    std::cout << elem << " ";
+                }
+            }
+            */
+            std::cout << std::endl;
 
             set_Wout(*mul);
             std::cout << "end updating Wout" << std::endl;
@@ -447,7 +474,7 @@ class ESN{
 #endif
 
 #ifdef USE_PYBIND
-        void SetWout(py::array_t<float> w_out, py::array_t<float> w_in){
+        void SetWout(py::array_t<float> w_out){
             std::cout << "Start SetWout" << std::endl;
 
             const auto &w_out_buf = w_out.request();
@@ -464,7 +491,9 @@ class ESN{
             } else {
                 std::cout << "w_out: shape error. ndim = " << w_out_ndim << ", shape[0]=" << w_out_shape[0] << ", shape[1]=" << w_out_shape[1] << std::endl;
             }
-            
+        }
+
+        void SetWin(py::array_t<float> w_in){
             const auto &w_in_buf = w_in.request();
             const auto &w_in_shape = w_in_buf.shape;
             const auto &w_in_ndim = w_in_buf.ndim;
@@ -481,6 +510,26 @@ class ESN{
             }
             
             std::cout << "End SetWout" << std::endl;
+        }
+
+        void SetW(py::array_t<float> w){
+            std::cout << "Start SetW" << std::endl;
+
+            const auto &w_buf = w.request();
+            const auto &w_shape = w_buf.shape;
+            const auto &w_ndim = w_buf.ndim;
+            float *ptr_w = static_cast<float *>(w_buf.ptr);
+            vec_w.resize(N_x, std::vector<float>(N_x));
+            if (w_ndim == 2 && (size_t)w_shape[1] == N_x) {
+                for (size_t i = 0; i < N_x; i++){
+                    for (size_t j = 0; j < N_x; j++){
+                        vec_w[i][j] = ptr_w[i * N_x + j];
+                    }
+                }
+            } else {
+                std::cout << "w: shape error. ndim = " << w_ndim << ", shape[0]=" << w_shape[0] << ", shape[1]=" << w_shape[1] << std::endl;
+            }
+            std::cout << "Finish SetW" << std::endl;
         }
 #endif
 
@@ -506,6 +555,47 @@ class ESN{
             return py_wout;
         }
 #endif
+
+        std::unique_ptr<std::vector<std::vector<float>>> make_connection_mat(size_t N_x, float density, float rho) {
+            auto connection_matrix = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(N_x));
+            auto w1 = m_matlib.generate_erdos_renyi(N_x, density);
+            auto w2 = m_matlib.generate_uniform_random(N_x, N_x, 1.0);
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    (*connection_matrix)[i][j] = (*w1)[i][j] * (*w2)[i][j];
+                }
+            }
+
+            // Eigen::MatrixXf に変換
+            float sp_radius = 0.0;
+            try {
+                Eigen::MatrixXf eigenMat = m_matlib.vectorMatrixToEigenMatrix(*connection_matrix);
+
+                Eigen::EigenSolver<Eigen::MatrixXf> solver(eigenMat);
+                Eigen::VectorXcf eigenvalues = solver.eigenvalues();
+
+                for (size_t i = 0; i < (size_t)eigenvalues.size(); ++i) {
+                    float absVal = std::abs(eigenvalues[i]);  // 固有値の絶対値
+                    if (absVal > sp_radius) {
+                        sp_radius = absVal;
+                    }
+                }
+
+            } catch (const std::exception& e) {
+                std::cerr << "エラー: " << e.what() << std::endl;
+            }
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    (*connection_matrix)[i][j] *= (rho / (1.0 * sp_radius));
+                }
+            }
+
+            return connection_matrix;
+        }
 };
 
 
@@ -557,6 +647,55 @@ TEST_CASE("[test] matrix mul") {
     }
     std::cout << "[PASS] matrix mul" << std::endl;
 }
+
+TEST_CASE("[test] create init matrix") {
+    std::cout << "[START] create init matrix" << std::endl;
+    SMatrix matlib = SMatrix();
+    ESN esn = ESN();
+
+    size_t N_x = 10;
+    size_t N_u = 15;
+    size_t N_y = 1;
+    float input_scale = 1.0f;
+    float density = 0.1;
+    float rho = 0.9;
+
+    auto w_in = matlib.generate_uniform_random(N_x, N_u, input_scale);
+    auto w = esn.make_connection_mat(N_x, density, rho);
+    auto w_out = matlib.generate_normal_distribution(N_y, N_x);
+
+    std::cout << "[result] w_in" << std::endl;
+    std::cout << "row_size: " << (*w_in).size() << std::endl;
+    std::cout << "col_size: " << (*w_in)[0].size() << std::endl;
+    for (const auto &row : *w_in){
+        for (const auto &elem : row){
+            std::cout << elem << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "[result] w" << std::endl;
+    std::cout << "row_size: " << (*w).size() << std::endl;
+    std::cout << "col_size: " << (*w)[0].size() << std::endl;
+    for (const auto &row : *w){
+        for (const auto &elem : row){
+            std::cout << elem << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "[result] w_out" << std::endl;
+    std::cout << "row_size: " << (*w_out).size() << std::endl;
+    std::cout << "col_size: " << (*w_out)[0].size() << std::endl;
+    for (const auto &row : *w_out){
+        for (const auto &elem : row){
+            std::cout << elem << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "[PASS] create init matrix" << std::endl;
+}
 #endif
 
 #ifdef USE_PYBIND
@@ -565,6 +704,8 @@ PYBIND11_MODULE(esn, m){
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
         .def(py::init<size_t, size_t, size_t, float, float, float, float>())
         .def("SetWout", &ESN::SetWout)
+        .def("SetWin", &ESN::SetWin)
+        .def("SetW", &ESN::SetW)
         .def("Print", &ESN::Print)
         .def("Predict", &ESN::Predict)
         .def("Train", &ESN::Train)
