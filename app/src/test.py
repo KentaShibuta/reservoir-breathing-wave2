@@ -214,8 +214,8 @@ def make_connection(N_x, density, rho, seed=0):
         return W
 
 import numpy as np
-N_x = 10
-N_u = 15
+N_x = 500
+N_u = 60000
 N_y = 1
 input_scale = 1.0
 density = 0.1
@@ -230,6 +230,21 @@ w_out = np.random.normal(size=(N_y, N_x))
 print("[result] w_in")
 print(w_in.shape)
 print(w_in)
+w_in_sum = 0.0
+for i in range(N_x):
+    for j in range(N_u):
+          w_in_sum += w_in[i,j]
+
+w_in_ave = w_in_sum / (1.0 * N_x * N_u)
+print(f"w_in average: {w_in_ave}")
+
+w_in_sum2 = 0.0
+for i in range(N_x):
+    for j in range(N_u):
+          w_in_sum2 += (w_in[i,j] - w_in_ave) * (w_in[i,j] - w_in_ave)
+
+w_in_variance = w_in_sum2 / (1.0 * N_x * N_u)
+print(f"w_in variance: {w_in_variance}")
 
 print("[result] w")
 print(w.shape)

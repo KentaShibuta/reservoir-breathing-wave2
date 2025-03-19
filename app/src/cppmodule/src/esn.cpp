@@ -653,8 +653,8 @@ TEST_CASE("[test] create init matrix") {
     SMatrix matlib = SMatrix();
     ESN esn = ESN();
 
-    size_t N_x = 10;
-    size_t N_u = 15;
+    size_t N_x = 500;
+    size_t N_u = 60000;
     size_t N_y = 1;
     float input_scale = 1.0f;
     float density = 0.1;
@@ -667,31 +667,50 @@ TEST_CASE("[test] create init matrix") {
     std::cout << "[result] w_in" << std::endl;
     std::cout << "row_size: " << (*w_in).size() << std::endl;
     std::cout << "col_size: " << (*w_in)[0].size() << std::endl;
+    float w_in_sum = 0;
     for (const auto &row : *w_in){
         for (const auto &elem : row){
-            std::cout << elem << " ";
+            //std::cout << elem << " ";
+            w_in_sum += elem;
+            //std::cout << std::endl;
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
     }
+    float w_in_ave = w_in_sum / (1.0f * N_x * N_u);
+    std::cout << "w_in average: " << w_in_ave << std::endl;
+
+    float w_in_sum2 = 0;
+    for (const auto &row : *w_in){
+        for (const auto &elem : row){
+            w_in_sum2 += (elem - w_in_ave) * (elem - w_in_ave);
+            //std::cout << std::endl;
+        }
+    }
+    float w_in_variance = w_in_sum2 / (1.0f * N_x * N_u);
+    std::cout << "w_in_variance: " << w_in_variance << std::endl;
+
+    std::cout << std::endl;
 
     std::cout << "[result] w" << std::endl;
     std::cout << "row_size: " << (*w).size() << std::endl;
     std::cout << "col_size: " << (*w)[0].size() << std::endl;
     for (const auto &row : *w){
         for (const auto &elem : row){
-            std::cout << elem << " ";
+            //std::cout << elem << " ";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
     }
+
+    std::cout << std::endl;
 
     std::cout << "[result] w_out" << std::endl;
     std::cout << "row_size: " << (*w_out).size() << std::endl;
     std::cout << "col_size: " << (*w_out)[0].size() << std::endl;
     for (const auto &row : *w_out){
         for (const auto &elem : row){
-            std::cout << elem << " ";
+            //std::cout << elem << " ";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
     }
 
     std::cout << "[PASS] create init matrix" << std::endl;
