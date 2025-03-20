@@ -5,6 +5,8 @@
 #include <omp.h>
 #include <random>
 #include <Dense> // Eigen
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 #include "SMatrix.hpp"
 
 #ifdef USE_PYBIND
@@ -284,6 +286,9 @@ class ESN{
 
 #ifdef USE_PYBIND
         py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d){
+            auto file_logger = spdlog::basic_logger_mt("basic_logger", "./log/log.txt");
+            spdlog::set_level(spdlog::level::debug);
+
             // read u
             std::cout << "start reading U" << std::endl;
             const auto &u_buf = u.request();
@@ -398,12 +403,19 @@ class ESN{
                     for (size_t i = 0; i < N_x; i++){
                         for (size_t j = 0; j < N_x; j++){
                             (*X_XT)[i][j] += vec_x[i] * vec_x[j];
+                            if(n == 4 || n == 1497){
+                                file_logger->debug("X_XT[{}][{}] = {}", i, j, (*X_XT)[i][j]);
+                            }
                         }
                     }
 
+                    //file_logger->debug("vec_d[{}] = {}", n, (*vec_d)[n]);
                     for (size_t i = 0; i < N_y; i++){
                         for (size_t j = 0; j < N_x; j++){
                             (*D_XT)[i][j] += (*vec_d)[n] * vec_x[j];
+                            if(n == 4 || n == 1497){
+                                file_logger->debug("D_XT[{}][{}] = {}", i, j, (*D_XT)[i][j]);
+                            }
                         }
                     }
                 }
@@ -424,6 +436,15 @@ class ESN{
             // 学習済みの出力結合重み行列を設定
             // X_XTの疑似逆行列を求める
             auto inv_X_XT = m_matlib.GetInverse(*X_XT);
+            size_t inv_i = 0;
+            for (auto& row : *inv_X_XT){
+                size_t inv_j = 0;
+                for (auto& elem : row){
+                    file_logger->debug("inv_X_XT[{}][{}] = {}", inv_i, inv_j, elem);
+                    inv_j++;
+                }
+                inv_i++;
+            }
 
             /*
             std::cout << "D_XT" << std::endl;
@@ -668,11 +689,15 @@ TEST_CASE("[test] create init matrix") {
     std::cout << "row_size: " << (*w_in).size() << std::endl;
     std::cout << "col_size: " << (*w_in)[0].size() << std::endl;
     float w_in_sum = 0;
+    int outOfScaleCount = 0;
     for (const auto &row : *w_in){
         for (const auto &elem : row){
             //std::cout << elem << " ";
             w_in_sum += elem;
             //std::cout << std::endl;
+            if (elem < -1.0 || elem > 1.0){
+                outOfScaleCount++;
+            }
         }
         //std::cout << std::endl;
     }
@@ -688,6 +713,7 @@ TEST_CASE("[test] create init matrix") {
     }
     float w_in_variance = w_in_sum2 / (1.0f * N_x * N_u);
     std::cout << "w_in_variance: " << w_in_variance << std::endl;
+    std::cout << "outOfScaleCount: " << outOfScaleCount << std::endl;
 
     std::cout << std::endl;
 
@@ -715,6 +741,44 @@ TEST_CASE("[test] create init matrix") {
 
     std::cout << "[PASS] create init matrix" << std::endl;
 }
+
+TEST_CASE("[test] inv matrix") {
+    std::cout << "[START] inv matrix" << std::endl;
+    SMatrix matlib = SMatrix();
+    auto file_logger = spdlog::basic_logger_mt("test_logger", "./log/test_log.txt");
+    spdlog::set_level(spdlog::level::debug);
+
+    size_t N_x = 500;
+    auto X_XT = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(N_x, 1497.0f));
+
+    auto inv_X_XT = matlib.GetInverse(*X_XT);
+
+    size_t inv_i = 0;
+    for (auto& row : *inv_X_XT){
+        size_t inv_j = 0;
+        for (auto& elem : row){
+            file_logger->debug("inv_X_XT[{}][{}] = {}", inv_i, inv_j, elem);
+            inv_j++;
+        }
+        inv_i++;
+    }
+
+    auto r1 = matlib.matMul(*inv_X_XT, *X_XT);
+    auto result1 = matlib.matMul(*X_XT, *r1);
+
+    inv_i = 0;
+    for (auto& row : *result1){
+        size_t inv_j = 0;
+        for (auto& elem : row){
+            file_logger->debug("result1[{}][{}] = {}", inv_i, inv_j, elem);
+            inv_j++;
+        }
+        inv_i++;
+    }
+
+    std::cout << "[PASS] inv matrix" << std::endl;
+}
+
 #endif
 
 #ifdef USE_PYBIND

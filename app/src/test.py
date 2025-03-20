@@ -212,7 +212,7 @@ def make_connection(N_x, density, rho, seed=0):
         W *= rho / sp_radius
 
         return W
-
+"""
 import numpy as np
 N_x = 500
 N_u = 60000
@@ -221,11 +221,20 @@ input_scale = 1.0
 density = 0.1
 rho = 0.9
 seed = 0
+"""
 
+"""
 np.random.seed(seed=seed)
 w_in = np.random.uniform(-input_scale, input_scale, (N_x, N_u))
 w = make_connection(N_x, density, rho)
 w_out = np.random.normal(size=(N_y, N_x))
+"""
+
+"""
+np.random.default_rng(seed)
+w_in = np.random.default_rng.uniform(-input_scale, input_scale, (N_x, N_u))
+w = make_connection(N_x, density, rho)
+w_out = np.random.default_rng.normal(size=(N_y, N_x))
 
 print("[result] w_in")
 print(w_in.shape)
@@ -252,4 +261,52 @@ print(w)
 
 print("[result] w_out")
 print(w_out.shape)
-print(w_out)
+print(w_out)"
+"""
+
+import numpy as np
+
+# 600x600のNumPy配列を作成し、すべての要素に1497を代入
+x = np.full((500, 500), 1497)
+
+#x_inv = np.linalg.pinv(x)
+nl = np.linalg
+u, s, vT = nl.svd(x, full_matrices=False)
+print("VT:")
+print(vT)
+print("s:")
+print(s)
+print("u:")
+print(u)
+
+eps = 1e-15 # 0とみなす特異値の閾値
+
+# t <= eps なる特異値 t は0にし，そうでないものは逆数1/tをとる
+s_inv = np.zeros_like(s)
+s_inv[s > eps] = 1.0 / s[s > eps]
+
+# sを2次元ベクトルから2*2の対角行列にする
+sigma = np.diag(s_inv)  # `s_inv` を対角成分に持つ対角行列を作成
+
+# 特異値分解の結果から一般逆行列を構成する
+x_inv = np.dot(np.dot(vT.T, sigma), u.T)
+
+print("x_inv:")
+print(x_inv)
+
+
+# 条件1: A * A^+ * A = A
+result1 = np.dot(x, np.dot(x_inv, x))
+condition1 = np.allclose(result1, x)
+
+# 条件2: A^+ * A * A^+ = A^+
+result2 = np.dot(x_inv, np.dot(x, x_inv))
+condition2 = np.allclose(result2, x_inv)
+
+# 結果を表示
+print("result1:")
+print(result1)
+print("result2:")
+print(result2)
+print(f"Condition 1 (A * A^+ * A = A): {condition1}")
+print(f"Condition 2 (A^+ * A * A^+ = A^+): {condition2}")

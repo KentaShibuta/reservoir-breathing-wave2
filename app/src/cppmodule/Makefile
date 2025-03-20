@@ -2,8 +2,8 @@
 # コンパイラとオプション
 # =============================
 CC := g++
-CFLAGS := -O3 -Wall -std=c++23 -fopenmp
-INCLUDES := -I /root/app/lib/eigen3 -I /root/app/src/cppmodule/include
+CFLAGS := -O3 -Wall -std=c++23 -fopenmp -L/root/app/lib/spdlog/build -lspdlog
+INCLUDES := -I /root/app/lib/eigen3 -I /root/app/src/cppmodule/include -I /root/app/lib/spdlog/include
 PY_CFLAGS := -shared -fPIC -fvisibility=hidden $(shell python3 -m pybind11 --includes) -DUSE_PYBIND
 TEST_INCLUDES := -I/root/app/lib/doctest
 TEST_CFLAGS := -DTEST

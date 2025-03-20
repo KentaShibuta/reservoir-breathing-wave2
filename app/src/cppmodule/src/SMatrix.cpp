@@ -1,9 +1,12 @@
 #include "SMatrix.hpp"
 
+std::shared_ptr<spdlog::logger> SMatrix::logger = nullptr;
+
 std::unique_ptr<std::vector<std::vector<float>>> SMatrix::generate_uniform_random(std::size_t row_size, std::size_t col_size, float scale) {
     uint_fast32_t seed = 0;
     std::mt19937 gen(seed); // メルセンヌ・ツイスター法による生成器
     std::uniform_real_distribution<float> dist(-1.0 * scale, std::nextafter(scale, std::numeric_limits<float>::max()));
+    //std::uniform_real_distribution<float> dist(-1.0 * scale, scale);
 
     auto numbers = std::make_unique<std::vector<std::vector<float>>>(row_size, std::vector<float>(col_size));
     for (std::size_t i = 0; i < row_size; i++) {
@@ -142,21 +145,72 @@ std::unique_ptr<std::vector<std::vector<float>>> SMatrix::matMul (const std::vec
 std::unique_ptr<std::vector<std::vector<float>>> SMatrix::GetInverse (const std::vector<std::vector<float>>& mat){
     // matをEigenに変換
     Eigen::MatrixXf eigenMat = vectorMatrixToEigenMatrix(mat);
+    Eigen::MatrixXd eigenMat_d = eigenMat.cast<double>();
+
+    std::cout << eigenMat_d << std::endl;
 
     // 特異値分解
-    Eigen::JacobiSVD<Eigen::MatrixXf> svd(eigenMat, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    Eigen::VectorXf s = svd.singularValues();
+    //Eigen::JacobiSVD<Eigen::MatrixXf> svd(eigenMat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(eigenMat_d, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    //Eigen::VectorXf s = svd.singularValues();
+    //Eigen::VectorXd s = svd.singularValues();
 
-    float tolerance = 1e-6; // しきい値（例）
+    // U, S, V の取得
+    Eigen::MatrixXd U = svd.matrixU();
+    Eigen::VectorXd S = svd.singularValues();
+    Eigen::MatrixXd V = svd.matrixV();
+
+    SMatrix::logger->debug("V:");
+    for (int i = 0; i < V.rows(); ++i) {
+        for (int j = 0; j < V.cols(); ++j) {
+            SMatrix::logger->debug("V[{}][{}] = {}", i, j, V(i, j));
+        }
+    }
+
+    SMatrix::logger->debug("S:");
+    for (int i = 0; i < S.size(); ++i) {
+        SMatrix::logger->debug("S[{}] = {}", i, S(i));
+    }
+
+    SMatrix::logger->debug("U:");
+    for (int i = 0; i < U.rows(); ++i) {
+        for (int j = 0; j < U.cols(); ++j) {
+            SMatrix::logger->debug("U[{}][{}] = {}", i, j, U(i, j));
+        }
+    }
+
+    /*
+    double tolerance = 1.0e-15; // しきい値（例）
     for (size_t i = 0; i < (size_t)s.size(); ++i) {
-        if (std::abs(s[i]) > tolerance)
-            s[i] = 1.0f / s[i];
+        //if (std::fabs(s[i]) > tolerance)
+        if (s[i] > tolerance)
+            s[i] = 1.0 / (s[i] * 1.0);
         else
-            s[i] = 0.0f; // 小さすぎる特異値は無視
+            s[i] = 0.0; // 小さすぎる特異値は無視
+    }
+    */
+
+    double epsilon = 1.0e-15;
+    // 特異値の逆数を計算（小さすぎる値は0にする）
+    Eigen::VectorXd S_inv(S.size());
+    for (int i = 0; i < S.size(); ++i) {
+        S_inv(i) = (S(i) > epsilon) ? (1.0 / S(i)) : 0.0;
+    }
+
+    // S を対角行列に変換 (n × m の適切なサイズにする)
+    Eigen::MatrixXd Sigma_pinv = Eigen::MatrixXd::Zero(V.rows(), U.cols());
+    for (int i = 0; i < S_inv.size(); ++i) {
+        Sigma_pinv(i, i) = S_inv(i);
     }
 
     // 擬似逆行列を計算
-    Eigen::MatrixXf Ainv = svd.matrixV() * s.asDiagonal() * svd.matrixU().transpose();
+    //Eigen::MatrixXf Ainv = svd.matrixV() * s.asDiagonal() * svd.matrixU().transpose();
+    //Eigen::MatrixXd Ainv_d = svd.matrixV().transpose() * s.asDiagonal() * svd.matrixU().transpose();
+    Eigen::MatrixXd Ainv_d = V * Sigma_pinv * U.transpose();
+
+    std::cout << Ainv_d(0,0) << std::endl;
+    //Eigen::MatrixXd Ainv_d = svd.matrixU() * s.asDiagonal() * svd.matrixV().transpose();
+    Eigen::MatrixXf Ainv = Ainv_d.cast<float>();
 
     // 擬似逆行列をvectorに変換
     return eigenMatrixToUniquePtr(Ainv);

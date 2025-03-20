@@ -23,17 +23,17 @@ def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_i
     
     # 学習（線形回帰）
     # call python module
-    Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
+    #Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
 
-    """
     # call c++ module
     model_Win, model_x, model_W, model_Wout =  model.Get()
     esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
-    #esn_cpp.SetW(model_W)
+    esn_cpp.SetW(model_W)
     #esn_cpp.SetWout(model_Wout, model_Win)
+    esn_cpp.SetWout(model_Wout)
+    esn_cpp.SetWin(model_Win)
     esn_cpp.Print()
     Y_learning = esn_cpp.Train(train, train_labels)
-    """
 
     # 学習済みモデルをファイルに保存する
     now = datetime.datetime.now()
@@ -150,6 +150,7 @@ def Predict(input_data, model_file):
     esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
     #esn_cpp.SetWout(Wout, model_Win)
     esn_cpp.SetWout(Wout)
+    esn_cpp.SetW(model_W)
     esn_cpp.SetWin(model_Win)
     Y = esn_cpp.Predict(input)
     #np.savetxt('./predict_cpp.csv', Y, delimiter=',')
@@ -164,7 +165,7 @@ def Predict(input_data, model_file):
 
 def main():
     start = time.perf_counter() #計測開始
-    isTrain = False
+    isTrain = True
 
     if isTrain == True:
         # train
@@ -181,7 +182,7 @@ def main():
         input_data = analyzer.GetColor(show=True, save=False, isTrain=isTrain)
 
         #model_file = "/root/app/model/20250305_181243.pickle"
-        model_file = "/root/app/model/20250316_035439.pickle"
+        model_file = "/root/app/model/20250319_133849.pickle"
         Predict(input_data, model_file)
 
     end = time.perf_counter() #計測終了

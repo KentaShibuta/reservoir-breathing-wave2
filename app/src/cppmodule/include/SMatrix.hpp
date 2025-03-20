@@ -8,10 +8,25 @@
 #include <omp.h>
 #include <random>
 #include <Dense> // Eigen
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 class SMatrix{
+    private:
+        static std::shared_ptr<spdlog::logger> logger;
     public:
-        SMatrix(){};
+        SMatrix(){
+            if (!logger) {  // loggerがまだ初期化されていない場合のみ初期化
+                try {
+                    // ロガーを作成
+                    logger = spdlog::basic_logger_mt("Smat_logger", "./log/log.txt");
+                    logger->set_level(spdlog::level::debug);
+                }
+                catch (const spdlog::spdlog_ex &e) {
+                    std::cerr << "Log initialization failed: " << e.what() << std::endl;
+                }
+            }
+        };
         std::unique_ptr<std::vector<std::vector<float>>> generate_uniform_random(std::size_t row_size, std::size_t col_size, float scale);
         std::unique_ptr<std::vector<std::vector<float>>> generate_normal_distribution(std::size_t row_size, std::size_t col_size, float mean = 0.0, float stddev = 1.0);
         Eigen::MatrixXf vectorMatrixToEigenMatrix(const std::vector<std::vector<float>>& vectorMatrix);
