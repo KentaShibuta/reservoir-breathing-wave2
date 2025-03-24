@@ -24,13 +24,13 @@ class ESN{
     private:
         SMatrix m_matlib;
 
-        void set_Wout (const std::vector<std::vector<float>>& mat){
+        void set_Wout (const std::vector<std::vector<double>>& mat){
             size_t row_size = mat.size();
             size_t col_size = mat[0].size();
 
             for (size_t i = 0; i < row_size; i++){
                 for (size_t j = 0; j < col_size; j++){
-                    vec_w_out[i][j] = mat[i][j];
+                    vec_w_out[i][j] = static_cast<float>(mat[i][j]);
                 }
             }
         }
@@ -286,7 +286,7 @@ class ESN{
 
 #ifdef USE_PYBIND
         py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d){
-            auto file_logger = spdlog::basic_logger_mt("basic_logger", "./log/log.txt");
+            auto file_logger = spdlog::basic_logger_mt("basic_logger", "./log/log_train.txt");
             spdlog::set_level(spdlog::level::debug);
 
             // read u
@@ -356,8 +356,8 @@ class ESN{
             size_t n = 0;
 
             // N_x行、N_x列
-            auto X_XT = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(N_x, 0.0f));
-            auto D_XT = std::make_unique<std::vector<std::vector<float>>>(N_y, std::vector<float>(N_x, 0.0f));
+            auto X_XT = std::make_unique<std::vector<std::vector<double>>>(N_x, std::vector<double>(N_x, 0.0));
+            auto D_XT = std::make_unique<std::vector<std::vector<double>>>(N_y, std::vector<double>(N_x, 0.0));
 
             for (const auto& input : vec_u){
                 //std::cout << "n:" << n << std::endl;
@@ -435,7 +435,9 @@ class ESN{
             std::cout << "start updating Wout" << std::endl;
             // 学習済みの出力結合重み行列を設定
             // X_XTの疑似逆行列を求める
-            auto inv_X_XT = m_matlib.GetInverse(*X_XT);
+            //auto inv_X_XT = m_matlib.GetInverse(*X_XT);
+            auto inv_X_XT = m_matlib.GetInversePy(*X_XT);
+
             size_t inv_i = 0;
             for (auto& row : *inv_X_XT){
                 size_t inv_j = 0;
@@ -467,7 +469,7 @@ class ESN{
             */
 
             // D_XTとX_XTの疑似逆行列の積を計算してWoutを求める
-            auto mul = m_matlib.matMul(*D_XT, *inv_X_XT);
+            auto mul = m_matlib.matMuld(*D_XT, *inv_X_XT);
 
             std::cout << "cpp Wout" << std::endl;
             for (size_t i = 0; i < N_x; i++){
@@ -616,6 +618,11 @@ class ESN{
             }
 
             return connection_matrix;
+        }
+
+        py::tuple GetInversePy2 (py::array_t<double> mat){
+            SMatrix matlib = SMatrix();
+            return matlib.GetInversePy2(mat);
         }
 };
 
@@ -786,6 +793,7 @@ PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
         .def(py::init<size_t, size_t, size_t, float, float, float, float>())
+        .def(py::init())
         .def("SetWout", &ESN::SetWout)
         .def("SetWin", &ESN::SetWin)
         .def("SetW", &ESN::SetW)
@@ -794,6 +802,7 @@ PYBIND11_MODULE(esn, m){
         .def("Train", &ESN::Train)
         //.def("Randnumer_test", &ESN::Randnumer_test)
         //.def("Generate_erdos_renyi_test", &ESN::Generate_erdos_renyi_test)
-        .def("GetWout", &ESN::GetWout);
+        .def("GetWout", &ESN::GetWout)
+        .def("GetInversePy2", &ESN::GetInversePy2);
 }
 #endif

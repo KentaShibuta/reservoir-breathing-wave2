@@ -188,6 +188,7 @@ x_xt = np.dot(x, x.T)
 
 print(x_xt)"
 """
+"""
 import networkx as nx
 
 def make_connection(N_x, density, rho, seed=0):
@@ -212,6 +213,7 @@ def make_connection(N_x, density, rho, seed=0):
         W *= rho / sp_radius
 
         return W
+"""
 """
 import numpy as np
 N_x = 500
@@ -265,13 +267,18 @@ print(w_out)"
 """
 
 import numpy as np
+from cppmodule.esn import ESN as ESNCpp
+
+esnCpp = ESNCpp()
 
 # 600x600のNumPy配列を作成し、すべての要素に1497を代入
 x = np.full((500, 500), 1497)
 
 #x_inv = np.linalg.pinv(x)
 nl = np.linalg
-u, s, vT = nl.svd(x, full_matrices=False)
+#u, s, vT = nl.svd(x, full_matrices=False)
+u, s, v = esnCpp.GetInversePy2(x)
+vT = v.T
 print("VT:")
 print(vT)
 print("s:")
