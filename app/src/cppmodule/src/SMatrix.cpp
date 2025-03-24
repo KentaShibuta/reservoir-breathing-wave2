@@ -17,6 +17,21 @@ std::unique_ptr<std::vector<std::vector<float>>> SMatrix::generate_uniform_rando
     return numbers;
 }
 
+std::unique_ptr<std::vector<std::vector<double>>> SMatrix::generate_uniform_randomd(std::size_t row_size, std::size_t col_size, float scale) {
+    uint_fast32_t seed = 0;
+    std::mt19937 gen(seed); // メルセンヌ・ツイスター法による生成器
+    std::uniform_real_distribution<double> dist(-1.0 * scale, std::nextafter(scale, std::numeric_limits<double>::max()));
+    //std::uniform_real_distribution<float> dist(-1.0 * scale, scale);
+
+    auto numbers = std::make_unique<std::vector<std::vector<double>>>(row_size, std::vector<double>(col_size));
+    for (std::size_t i = 0; i < row_size; i++) {
+        for (std::size_t j = 0; j < col_size; j++) {
+            (*numbers)[i][j] = dist(gen);
+        }
+    }
+    return numbers;
+}
+
 std::unique_ptr<std::vector<std::vector<float>>> SMatrix::generate_normal_distribution(std::size_t row_size, std::size_t col_size, float mean, float stddev) {
     // 乱数生成器と正規分布設定
     uint_fast32_t seed = 0;
@@ -25,6 +40,23 @@ std::unique_ptr<std::vector<std::vector<float>>> SMatrix::generate_normal_distri
 
     // N_y行N_x列の2次元配列を作成
     auto numbers = std::make_unique<std::vector<std::vector<float>>>(row_size, std::vector<float>(col_size));
+    // 乱数を生成して配列に格納
+    for (std::size_t i = 0; i < row_size; i++) {
+        for (std::size_t j = 0; j < col_size; j++) {
+            (*numbers)[i][j] = dist(gen);
+        }
+    }
+    return numbers;
+}
+
+std::unique_ptr<std::vector<std::vector<double>>> SMatrix::generate_normal_distributiond(std::size_t row_size, std::size_t col_size, float mean, float stddev) {
+    // 乱数生成器と正規分布設定
+    uint_fast32_t seed = 0;
+    std::mt19937 gen(seed);
+    std::normal_distribution<double> dist(mean, stddev);
+
+    // N_y行N_x列の2次元配列を作成
+    auto numbers = std::make_unique<std::vector<std::vector<double>>>(row_size, std::vector<double>(col_size));
     // 乱数を生成して配列に格納
     for (std::size_t i = 0; i < row_size; i++) {
         for (std::size_t j = 0; j < col_size; j++) {
@@ -165,6 +197,20 @@ std::unique_ptr<std::vector<float>> SMatrix::dot (const std::vector<std::vector<
     return y;
 }
 
+std::unique_ptr<std::vector<double>> SMatrix::dotd (const std::vector<std::vector<double>> &mat, const std::vector<double> &vec){
+    size_t vec_size = vec.size();
+    auto y = std::make_unique<std::vector<double>>(vec_size, 0.0);
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < mat.size(); i++) {
+        for (size_t j = 0; j < vec_size; j++) {
+            (*y)[i] += mat[i][j] * vec[j];
+        }
+    }
+
+    return y;
+}
+
 // 行列Aと行列Bの積
 std::unique_ptr<std::vector<std::vector<float>>> SMatrix::matMul (const std::vector<std::vector<float>> &A, const std::vector<std::vector<float>> &B){
     size_t m = A.size();    // Aの行数
@@ -196,7 +242,7 @@ std::unique_ptr<std::vector<std::vector<double>>> SMatrix::matMuld (const std::v
     std::cout << "A: (" << m << ", " << n << ")" << std::endl;
     std::cout << "B: (" << n << ", " << p << ")" << std::endl;
 
-    auto mul = std::make_unique<std::vector<std::vector<double>>>(m, std::vector<double>(p, 0.0f));
+    auto mul = std::make_unique<std::vector<std::vector<double>>>(m, std::vector<double>(p, 0.0));
 
     for (size_t i = 0; i < m; ++i) {
         for (size_t j = 0; j < p; ++j) {
@@ -315,6 +361,7 @@ std::unique_ptr<std::vector<std::vector<double>>> SMatrix::GetInversePy (const s
     // 4. Import numpy and call np.linalg.svd
     py::module_ np = py::module_::import("numpy");
     py::object svd = np.attr("linalg").attr("svd");
+    py::object pinv = np.attr("linalg").attr("pinv");
 
     // 5. Perform SVD on the matrix
     py::tuple result = svd(np_matrix, py::arg("full_matrices") = false);
@@ -376,7 +423,7 @@ std::unique_ptr<std::vector<std::vector<double>>> SMatrix::GetInversePy (const s
         }
     }
 
-    double epsilon = 1.0e-15;
+    double epsilon = 1.0e-10;
     // 特異値の逆数を計算（小さすぎる値は0にする）
     Eigen::VectorXd S_inv(S.size());
     for (int i = 0; i < S.size(); ++i) {
@@ -391,6 +438,11 @@ std::unique_ptr<std::vector<std::vector<double>>> SMatrix::GetInversePy (const s
 
     // 擬似逆行列を計算
     Eigen::MatrixXd Ainv_d = V * Sigma_pinv * U.transpose();
+
+    /*
+    py::array_t<double> Ainv_py = pinv(np_matrix).cast<py::array_t<double>>();
+    Eigen::MatrixXd Ainv_d(Ainv_py.shape(0), Ainv_py.shape(1));
+    */
 
     std::cout << Ainv_d(0,0) << std::endl;
     //Eigen::MatrixXf Ainv = Ainv_d.cast<float>();

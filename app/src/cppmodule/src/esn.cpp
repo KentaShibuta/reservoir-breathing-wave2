@@ -30,37 +30,37 @@ class ESN{
 
             for (size_t i = 0; i < row_size; i++){
                 for (size_t j = 0; j < col_size; j++){
-                    vec_w_out[i][j] = static_cast<float>(mat[i][j]);
+                    vec_w_out[i][j] = static_cast<double>(mat[i][j]);
                 }
             }
         }
 
     public:
-        std::vector<std::vector<std::vector<float>>> vec_u;
-        std::vector<std::vector<float>> vec_w_in;
-        std::vector<std::vector<float>> vec_w;
-        std::vector<std::vector<float>> vec_w_out;
-        std::vector<float> vec_x;
-        float a_alpha;
+        std::vector<std::vector<std::vector<double>>> vec_u;
+        std::vector<std::vector<double>> vec_w_in;
+        std::vector<std::vector<double>> vec_w;
+        std::vector<std::vector<double>> vec_w_out;
+        std::vector<double> vec_x;
+        double a_alpha;
         size_t N;
         size_t N_window;
         size_t N_u;
         size_t N_x;
         size_t N_y;
 
-        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate){
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, double leaking_rate){
             m_matlib = SMatrix();
             N_u = n_u;
             std::cout << "init N_u: " << N_u << std::endl;
             N_y = n_y;
             N_x = n_x;
 
-            auto mat_w_in = m_matlib.generate_uniform_random(N_x, N_u, input_scale);
+            auto mat_w_in = m_matlib.generate_uniform_randomd(N_x, N_u, input_scale);
 
-            auto mat_w = make_connection_mat(N_x, density, rho);
-            auto mat_w_out = m_matlib.generate_normal_distribution(N_y, N_x);
+            auto mat_w = make_connection_matd(N_x, density, rho);
+            auto mat_w_out = m_matlib.generate_normal_distributiond(N_y, N_x);
 
-            auto x_ptr = std::make_unique<std::vector<float>>(N_x, 0.0f);
+            auto x_ptr = std::make_unique<std::vector<double>>(N_x, 0.0);
 
             vec_w_in = *mat_w_in;
             vec_w = *mat_w;
@@ -70,7 +70,7 @@ class ESN{
         }
 
 #ifdef USE_PYBIND
-        ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha){
+        ESN(py::array_t<double> u, py::array_t<double> w_in, py::array_t<double> w, py::array_t<double> w_out, py::array_t<double> x, double alpha){
             m_matlib = SMatrix();
             const auto &u_buf = u.request();
             const auto &u_shape = u_buf.shape;
@@ -78,8 +78,8 @@ class ESN{
             N = u_shape[0];
             N_window = u_shape[1];
             N_u = u_shape[2];
-            float *ptr_u = static_cast<float *>(u_buf.ptr);
-            vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
+            double *ptr_u = static_cast<double *>(u_buf.ptr);
+            vec_u.resize(N, std::vector<std::vector<double>>(N_window, std::vector<double>(N_u)));
             if (u_ndim == 3) {
                 for (size_t i = 0; i < N; i++){
                     for (size_t j = 0; j < N_window; j++){
@@ -96,8 +96,8 @@ class ESN{
             const auto &w_in_shape = w_in_buf.shape;
             const auto &w_in_ndim = w_in_buf.ndim;
             N_x = w_in_shape[0];
-            float *ptr_w_in = static_cast<float *>(w_in_buf.ptr);
-            vec_w_in.resize(N_x, std::vector<float>(N_u));
+            double *ptr_w_in = static_cast<double *>(w_in_buf.ptr);
+            vec_w_in.resize(N_x, std::vector<double>(N_u));
             if (w_in_ndim == 2 && (size_t)w_in_shape[1] == N_u) {
                 for (size_t i = 0; i < N_x; i++){
                     for (size_t j = 0; j < N_u; j++){
@@ -111,8 +111,8 @@ class ESN{
             const auto &w_buf = w.request();
             const auto &w_shape = w_buf.shape;
             const auto &w_ndim = w_buf.ndim;
-            float *ptr_w = static_cast<float *>(w_buf.ptr);
-            vec_w.resize(N_x, std::vector<float>(N_x));
+            double *ptr_w = static_cast<double *>(w_buf.ptr);
+            vec_w.resize(N_x, std::vector<double>(N_x));
             if (w_ndim == 2 && (size_t)w_shape[0] == N_x && (size_t)w_shape[1] == N_x) {
                 for (size_t i = 0; i < N_x; i++){
                     for (size_t j = 0; j < N_x; j++){
@@ -127,8 +127,8 @@ class ESN{
             const auto &w_out_shape = w_out_buf.shape;
             const auto &w_out_ndim = w_out_buf.ndim;
             N_y = w_out_shape[0];
-            float *ptr_w_out = static_cast<float *>(w_out_buf.ptr);
-            vec_w_out.resize(N_y, std::vector<float>(N_x));
+            double *ptr_w_out = static_cast<double *>(w_out_buf.ptr);
+            vec_w_out.resize(N_y, std::vector<double>(N_x));
             if (w_out_ndim == 2 && (size_t)w_out_shape[1] == N_x) {
                 for (size_t i = 0; i < N_y; i++){
                     for (size_t j = 0; j < N_x; j++){
@@ -142,7 +142,7 @@ class ESN{
             const auto &x_buf = x.request();
             const auto &x_shape = x_buf.shape;
             const auto &x_ndim = x_buf.ndim;
-            float *ptr_x = static_cast<float *>(x_buf.ptr);
+            double *ptr_x = static_cast<double *>(x_buf.ptr);
             vec_x.resize(N_x);
             if (x_ndim == 1 && (size_t)x_shape[0] == N_x) {
                 for (size_t i = 0; i < N_x; i++){
@@ -227,14 +227,14 @@ class ESN{
         }
 
 #ifdef USE_PYBIND
-        py::array_t<float> Predict(py::array_t<float> u){
+        py::array_t<double> Predict(py::array_t<double> u){
             const auto &u_buf = u.request();
             const auto &u_shape = u_buf.shape;
             const auto &u_ndim = u_buf.ndim;
             N = u_shape[0];
             N_window = u_shape[1];
-            float *ptr_u = static_cast<float *>(u_buf.ptr);
-            vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
+            double *ptr_u = static_cast<double *>(u_buf.ptr);
+            vec_u.resize(N, std::vector<std::vector<double>>(N_window, std::vector<double>(N_u)));
             if (u_ndim == 3) {
                 for (size_t i = 0; i < N; i++){
                     for (size_t j = 0; j < N_window; j++){
@@ -252,15 +252,15 @@ class ESN{
             std::cout << "Win size: " << vec_w_in.size() << ", " << vec_w_in[0].size() << std::endl;
 
             std::cout << "Init y" << std::endl;
-            py::array_t<float> y({N, N_y});
+            py::array_t<double> y({N, N_y});
             
             std::cout << "Running Predict" << std::endl;
             size_t n = 0;
             for (const auto& input : vec_u){
                 size_t step = 0;
                 for (const auto& input_step : input){
-                    auto x_in = m_matlib.dot(vec_w_in, input_step);
-                    auto w_dot_x = m_matlib.dot(vec_w, vec_x);
+                    auto x_in = m_matlib.dotd(vec_w_in, input_step);
+                    auto w_dot_x = m_matlib.dotd(vec_w, vec_x);
 
                     // リザバー状態ベクトルの更新
                     for (size_t i = 0; i < N_x; i++){
@@ -270,7 +270,7 @@ class ESN{
                     step++;
                 }
 
-                auto y_pred = m_matlib.dot(vec_w_out, vec_x);
+                auto y_pred = m_matlib.dotd(vec_w_out, vec_x);
                 for (size_t j = 0; j < N_y; j++){
                     *y.mutable_data(n, j) = (*y_pred)[j];
                 }
@@ -285,9 +285,12 @@ class ESN{
 #endif
 
 #ifdef USE_PYBIND
-        py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d){
+        py::array_t<double> Train(py::array_t<double> u, py::array_t<double> d){
             auto file_logger = spdlog::basic_logger_mt("basic_logger", "./log/log_train.txt");
             spdlog::set_level(spdlog::level::debug);
+
+            py::module_ np = py::module_::import("numpy");
+            py::object np_tanh = np.attr("tanh");
 
             // read u
             std::cout << "start reading U" << std::endl;
@@ -297,8 +300,8 @@ class ESN{
             N = u_shape[0];
             N_window = u_shape[1];
             //N_u = u_shape[2];
-            float *ptr_u = static_cast<float *>(u_buf.ptr);
-            vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
+            double *ptr_u = static_cast<double *>(u_buf.ptr);
+            vec_u.resize(N, std::vector<std::vector<double>>(N_window, std::vector<double>(N_u)));
             if (u_ndim == 3) {
                 for (size_t i = 0; i < N; i++){
                     for (size_t j = 0; j < N_window; j++){
@@ -318,8 +321,8 @@ class ESN{
             const auto &d_shape = d_buf.shape;
             const auto &d_ndim = d_buf.ndim;
             //size_t N_d = d_shape[0];
-            float *ptr_d = static_cast<float *>(d_buf.ptr);
-            auto vec_d = std::make_unique<std::vector<float>>(N, 0.0f);
+            double *ptr_d = static_cast<double *>(d_buf.ptr);
+            auto vec_d = std::make_unique<std::vector<double>>(N, 0.0);
             if (d_ndim == 1 && (size_t)d_shape[0] == N) {
                 for (size_t i = 0; i < N; i++){
                     (*vec_d)[i] = ptr_d[i];
@@ -349,7 +352,7 @@ class ESN{
             */
 
             //auto y = std::make_unique<std::vector<float>>(N, 0.0f);
-            py::array_t<float> y(N);
+            py::array_t<double> y(N);
 
             // 時間発展
             std::cout << "Running Train" << std::endl;
@@ -379,12 +382,13 @@ class ESN{
 
                 //std::cout << "start updating vec_x" << std::endl;
                 for (const auto& input_step : input){;
-                    auto x_in = m_matlib.dot(vec_w_in, input_step);
-                    auto w_dot_x = m_matlib.dot(vec_w, vec_x);
+                    auto x_in = m_matlib.dotd(vec_w_in, input_step);
+                    auto w_dot_x = m_matlib.dotd(vec_w, vec_x);
 
                     // リザバー状態ベクトルの更新
                     for (size_t i = 0; i < N_x; i++){
                         vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]);
+                        //vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * np_tanh((*w_dot_x)[i] + (*x_in)[i]).cast<double>();
                     }
 
                     step++;
@@ -497,14 +501,14 @@ class ESN{
 #endif
 
 #ifdef USE_PYBIND
-        void SetWout(py::array_t<float> w_out){
+        void SetWout(py::array_t<double> w_out){
             std::cout << "Start SetWout" << std::endl;
 
             const auto &w_out_buf = w_out.request();
             const auto &w_out_shape = w_out_buf.shape;
             const auto &w_out_ndim = w_out_buf.ndim;
-            float *ptr_w_out = static_cast<float *>(w_out_buf.ptr);
-            vec_w_out.resize(N_y, std::vector<float>(N_x));
+            double *ptr_w_out = static_cast<double *>(w_out_buf.ptr);
+            vec_w_out.resize(N_y, std::vector<double>(N_x));
             if (w_out_ndim == 2 && (size_t)w_out_shape[1] == N_x) {
                 for (size_t i = 0; i < N_y; i++){
                     for (size_t j = 0; j < N_x; j++){
@@ -516,12 +520,12 @@ class ESN{
             }
         }
 
-        void SetWin(py::array_t<float> w_in){
+        void SetWin(py::array_t<double> w_in){
             const auto &w_in_buf = w_in.request();
             const auto &w_in_shape = w_in_buf.shape;
             const auto &w_in_ndim = w_in_buf.ndim;
-            float *ptr_w_in = static_cast<float *>(w_in_buf.ptr);
-            vec_w_in.resize(N_x, std::vector<float>(N_u));
+            double *ptr_w_in = static_cast<double *>(w_in_buf.ptr);
+            vec_w_in.resize(N_x, std::vector<double>(N_u));
             if (w_in_ndim == 2 && (size_t)w_in_shape[1] == N_u) {
                 for (size_t i = 0; i < N_x; i++){
                     for (size_t j = 0; j < N_u; j++){
@@ -535,14 +539,14 @@ class ESN{
             std::cout << "End SetWout" << std::endl;
         }
 
-        void SetW(py::array_t<float> w){
+        void SetW(py::array_t<double> w){
             std::cout << "Start SetW" << std::endl;
 
             const auto &w_buf = w.request();
             const auto &w_shape = w_buf.shape;
             const auto &w_ndim = w_buf.ndim;
-            float *ptr_w = static_cast<float *>(w_buf.ptr);
-            vec_w.resize(N_x, std::vector<float>(N_x));
+            double *ptr_w = static_cast<double *>(w_buf.ptr);
+            vec_w.resize(N_x, std::vector<double>(N_x));
             if (w_ndim == 2 && (size_t)w_shape[1] == N_x) {
                 for (size_t i = 0; i < N_x; i++){
                     for (size_t j = 0; j < N_x; j++){
@@ -557,18 +561,18 @@ class ESN{
 #endif
 
 #ifdef USE_PYBIND
-        py::array_t<float> GetWout(){
+        py::array_t<double> GetWout(){
             size_t row_size = vec_w_out.size();
             size_t col_size = vec_w_out[0].size();
 
             // NumPy配列用メモリ確保
-            py::array_t<float> py_wout({row_size, col_size});
+            py::array_t<double> py_wout({row_size, col_size});
 
             // データへのポインタ取得
             auto buf = py_wout.request();
-            float* ptr = static_cast<float*>(buf.ptr);
+            double* ptr = static_cast<double*>(buf.ptr);
 
-            // vector<vector<float>> の内容を NumPy 配列へコピー
+            // vector<vector<double>> の内容を NumPy 配列へコピー
             for (size_t i = 0; i < row_size; ++i) {
                 for (size_t j = 0; j < col_size; ++j) {
                     ptr[i * col_size + j] = vec_w_out[i][j];
@@ -601,6 +605,47 @@ class ESN{
 
                 for (size_t i = 0; i < (size_t)eigenvalues.size(); ++i) {
                     float absVal = std::abs(eigenvalues[i]);  // 固有値の絶対値
+                    if (absVal > sp_radius) {
+                        sp_radius = absVal;
+                    }
+                }
+
+            } catch (const std::exception& e) {
+                std::cerr << "エラー: " << e.what() << std::endl;
+            }
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    (*connection_matrix)[i][j] *= (rho / (1.0 * sp_radius));
+                }
+            }
+
+            return connection_matrix;
+        }
+
+        std::unique_ptr<std::vector<std::vector<double>>> make_connection_matd(size_t N_x, float density, float rho) {
+            auto connection_matrix = std::make_unique<std::vector<std::vector<double>>>(N_x, std::vector<double>(N_x));
+            auto w1 = m_matlib.generate_erdos_renyi(N_x, density);
+            auto w2 = m_matlib.generate_uniform_randomd(N_x, N_x, 1.0);
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    (*connection_matrix)[i][j] = (*w1)[i][j] * (*w2)[i][j];
+                }
+            }
+
+            // Eigen::MatrixXf に変換
+            double sp_radius = 0.0;
+            try {
+                Eigen::MatrixXd eigenMat = m_matlib.vectorMatrixToEigenMatrixd(*connection_matrix);
+
+                Eigen::EigenSolver<Eigen::MatrixXd> solver(eigenMat);
+                Eigen::VectorXcd eigenvalues = solver.eigenvalues();
+
+                for (size_t i = 0; i < (size_t)eigenvalues.size(); ++i) {
+                    double absVal = std::fabs(eigenvalues[i]);  // 固有値の絶対値
                     if (absVal > sp_radius) {
                         sp_radius = absVal;
                     }
@@ -791,8 +836,8 @@ TEST_CASE("[test] inv matrix") {
 #ifdef USE_PYBIND
 PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
-        .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
-        .def(py::init<size_t, size_t, size_t, float, float, float, float>())
+        .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, double>())
+        .def(py::init<size_t, size_t, size_t, float, float, float, double>())
         .def(py::init())
         .def("SetWout", &ESN::SetWout)
         .def("SetWin", &ESN::SetWin)
