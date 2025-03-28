@@ -424,7 +424,7 @@ std::unique_ptr<std::vector<std::vector<double>>> SMatrix::GetInversePy (const s
         }
     }
 
-    double epsilon = 1.0e-10;
+    double epsilon = 1.0e-5;
     // 特異値の逆数を計算（小さすぎる値は0にする）
     Eigen::VectorXd S_inv(S.size());
     for (int i = 0; i < S.size(); ++i) {

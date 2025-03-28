@@ -49,7 +49,7 @@ class SMatrix2{
         template <typename T>
         std::unique_ptr<std::vector<std::vector<T>>> matMul (const std::vector<std::vector<T>> &A, const std::vector<std::vector<T>> &B);
 #ifdef USE_PYBIND
-        template <typename T>
+        template <typename MatrixType, typename VectorType, typename T>
         std::unique_ptr<std::vector<std::vector<T>>> GetInversePy (const std::vector<std::vector<T>>& mat);
 #endif
 };

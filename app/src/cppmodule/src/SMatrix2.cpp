@@ -164,10 +164,10 @@ template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::matMul<float
 
 #ifdef USE_PYBIND
 // 擬似逆行列を求める
-template <typename MatrixType, typename T>
+template <typename MatrixType, typename VectorType, typename T>
 std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::vector<std::vector<T>>& mat){
     // matをEigenに変換
-    MatrixType eigenMat = vectorMatrixToEigenMatrix(mat);
+    MatrixType eigenMat = vectorMatrixToEigenMatrix<MatrixType, T>(mat);
 
     std::cout << eigenMat << std::endl;
 
@@ -202,12 +202,14 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
 
     // Transpose V to get V
     py::object transpose = np.attr("transpose");
-    py::array_t<T> V_py = transpose(V_transpose).cast<py::array_t<T>>();
+    //py::array_t<T> V_py = transpose(V_transpose).cast<py::array_t<T>>();
+    auto tmp_V_py = transpose(V_transpose);
+    py::array_t<T> V_py = tmp_V_py.template cast<py::array_t<T>>();
 
     // 7. Convert Numpy arrays back to Eigen matrices
     MatrixType U(U_py.shape(0), U_py.shape(1));
     MatrixType V(V_py.shape(0), V_py.shape(1));
-    MatrixType S(S_py.shape(0));
+    VectorType S(S_py.shape(0));
 
     // Fill U
     for (size_t i = 0; i < (size_t)U_py.shape(0); ++i) {
@@ -254,7 +256,7 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
 
     T epsilon = 1.0e-10;
     // 特異値の逆数を計算（小さすぎる値は0にする）
-    MatrixType S_inv(S.size());
+    VectorType S_inv(S.size());
     for (size_t i = 0; i < (size_t)S.size(); ++i) {
         S_inv(i) = (S(i) > epsilon) ? (1.0 / S(i)) : 0.0;
     }
@@ -276,8 +278,8 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
     }
 
     // 擬似逆行列をvectorに変換
-    return eigenMatrixToUniquePtr(Ainv);
+    return eigenMatrixToUniquePtr<MatrixType, T>(Ainv);
 }
-template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInversePy<Eigen::MatrixXd, double> (const std::vector<std::vector<double>>&);
-template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInversePy<Eigen::MatrixXf, float> (const std::vector<std::vector<float>>&);
+template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInversePy<Eigen::MatrixXd, Eigen::VectorXd, double> (const std::vector<std::vector<double>>&);
+template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInversePy<Eigen::MatrixXf, Eigen::VectorXf, float> (const std::vector<std::vector<float>>&);
 #endif
