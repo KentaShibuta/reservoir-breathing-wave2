@@ -2,12 +2,14 @@
 #include <vector>
 #include <cmath>
 #include <memory>
+#include <string>
 #include <omp.h>
 #include <random>
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include "SMatrix.hpp"
+#include "SMatrix2.hpp"
 
 #ifdef USE_PYBIND
 #include <pybind11/pybind11.h>
@@ -18,6 +20,7 @@ namespace py = pybind11;
 #ifdef TEST
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN // doctestの実装部とmain関数を有効化する
 #include "doctest.h"
+#include <typeinfo>
 #endif
 
 class ESN{
@@ -665,10 +668,12 @@ class ESN{
             return connection_matrix;
         }
 
+#ifdef USE_PYBIND
         py::tuple GetInversePy2 (py::array_t<double> mat){
             SMatrix matlib = SMatrix();
             return matlib.GetInversePy2(mat);
         }
+#endif
 };
 
 
@@ -829,6 +834,110 @@ TEST_CASE("[test] inv matrix") {
     }
 
     std::cout << "[PASS] inv matrix" << std::endl;
+}
+
+TEST_CASE("[test] SMatrix2") {
+    std::cout << "[START] SMatrix2" << std::endl;
+    SMatrix2 matlib2 = SMatrix2();
+
+    ///////////////
+    // test data //
+    ///////////////
+    size_t row_size = 10;
+    size_t col_size = 10;
+    double scale_d = 1.0;
+    float scale_f = 1.0f;
+    double mean_d = 0.0;
+    float mean_f = 0.0f;
+    double stddev_d = 1.0;
+    float stddev_f = 1.0f;
+
+    std::vector<std::vector<double>> A_d = {
+        {1.0, 2.0, 3.0},
+        {4.0, 5.0, 6.0},
+        {7.0, 8.0, 9.0}
+    };
+    std::vector<std::vector<double>> B_d = {
+        {11.0, 12.0, 13.0},
+        {14.0, 15.0, 16.0},
+        {17.0, 18.0, 19.0}
+    };
+    std::vector<std::vector<float>> A_f = {
+        {1.0f, 2.0f, 3.0f},
+        {4.0f, 5.0f, 6.0f},
+        {7.0f, 8.0f, 9.0f}
+    };
+    std::vector<std::vector<float>> B_f = {
+        {11.0f, 12.0f, 13.0f},
+        {14.0f, 15.0f, 16.0f},
+        {17.0f, 18.0f, 19.0f}
+    };
+
+    size_t N_x = 20;
+    double density_d = 0.6;
+    float density_f = 0.6f;
+
+    std::vector<double> vec_d = {1.0, -2.0, 3.0};
+    std::vector<float> vec_f = {1.0f, -2.0f, 3.0f};
+
+    std::cout << "generate_uniform_random" << std::endl;
+    auto uniform_rand_mat_d = matlib2.generate_uniform_random(row_size, col_size, scale_d);
+    std::cout << typeid((*uniform_rand_mat_d)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*uniform_rand_mat_d)[0][0]).name()) == "d");
+    auto uniform_rand_mat_f = matlib2.generate_uniform_random(row_size, col_size, scale_f);
+    std::cout << typeid((*uniform_rand_mat_f)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*uniform_rand_mat_f)[0][0]).name()) == "f");
+
+    std::cout << "generate_normal_distribution" << std::endl;
+    auto normal_rand_mat_d = matlib2.generate_normal_distribution(row_size, col_size, mean_d, stddev_d);
+    std::cout << typeid((*normal_rand_mat_d)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*normal_rand_mat_d)[0][0]).name()) == "d");
+    auto normal_rand_mat_f = matlib2.generate_normal_distribution(row_size, col_size, mean_f, stddev_f);
+    std::cout << typeid((*normal_rand_mat_f)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*normal_rand_mat_f)[0][0]).name()) == "f");
+
+    std::cout << "vectorMatrixToEigenMatrix" << std::endl;
+    auto eigen_mat_d = matlib2.vectorMatrixToEigenMatrix<Eigen::MatrixXd, double>(A_d);
+    std::cout << typeid(eigen_mat_d(0, 0)).name() << std::endl;
+    CHECK(std::string(typeid(eigen_mat_d(0, 0)).name()) == "d");
+    auto eigen_mat_f = matlib2.vectorMatrixToEigenMatrix<Eigen::MatrixXf, float>(A_f);
+    std::cout << typeid(eigen_mat_f(0, 0)).name() << std::endl;
+    CHECK(std::string(typeid(eigen_mat_f(0, 0)).name()) == "f");
+
+    std::cout << "eigenMatrixToUniquePtr" << std::endl;
+    auto unique_ptr_d = matlib2.eigenMatrixToUniquePtr<Eigen::MatrixXd, double>(eigen_mat_d);
+    std::cout << typeid((*unique_ptr_d)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*unique_ptr_d)[0][0]).name()) == "d");
+    auto unique_ptr_f = matlib2.eigenMatrixToUniquePtr<Eigen::MatrixXf, float>(eigen_mat_f);
+    std::cout << typeid((*unique_ptr_f)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*unique_ptr_f)[0][0]).name()) == "f");
+
+    std::cout << "generate_erdos_renyi" << std::endl;
+    auto erdos_renyi_d = matlib2.generate_erdos_renyi(N_x, density_d);
+    std::cout << typeid((*erdos_renyi_d)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*erdos_renyi_d)[0][0]).name()) == "h");
+    auto erdos_renyi_f = matlib2.generate_erdos_renyi(N_x, density_f);
+    std::cout << typeid((*erdos_renyi_f)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*erdos_renyi_f)[0][0]).name()) == "h");
+
+    std::cout << "dot" << std::endl;
+    auto dot_d = matlib2.dot(A_d, vec_d);
+    std::cout << typeid((*dot_d)[0]).name() << std::endl;
+    CHECK(std::string(typeid((*dot_d)[0]).name()) == "d");
+    auto dot_f = matlib2.dot(A_f, vec_f);
+    std::cout << typeid((*dot_f)[0]).name() << std::endl;
+    CHECK(std::string(typeid((*dot_f)[0]).name()) == "f");
+
+    std::cout << "matMul" << std::endl;
+    auto matMul_d = matlib2.matMul(A_d, B_d);
+    std::cout << typeid((*matMul_d)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*matMul_d)[0][0]).name()) == "d");
+    auto matMul_f = matlib2.matMul(A_f, B_f);
+    std::cout << typeid((*matMul_f)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*matMul_f)[0][0]).name()) == "f");
+
+
+    std::cout << "[PASS] SMatrix2" << std::endl;
 }
 
 #endif

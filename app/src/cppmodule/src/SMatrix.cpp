@@ -334,6 +334,7 @@ std::unique_ptr<std::vector<std::vector<float>>> SMatrix::GetInverse (const std:
     */
 }
 
+#ifdef USE_PYBIND
 // 擬似逆行列を求める
 std::unique_ptr<std::vector<std::vector<double>>> SMatrix::GetInversePy (const std::vector<std::vector<double>>& mat){
     // matをEigenに変換
@@ -456,7 +457,9 @@ std::unique_ptr<std::vector<std::vector<double>>> SMatrix::GetInversePy (const s
     //return eigenMatrixToUniquePtr(Ainv);
     return eigenMatrixToUniquePtrd(Ainv_d);
 }
+#endif
 
+#ifdef USE_PYBIND
 // 擬似逆行列を求める
 py::tuple SMatrix::GetInversePy2 (py::array_t<double> mat){
 
@@ -551,3 +554,4 @@ py::tuple SMatrix::GetInversePy2 (py::array_t<double> mat){
     // 擬似逆行列をvectorに変換
     return py::make_tuple(U_py, S_py, V_py);
 }
+#endif

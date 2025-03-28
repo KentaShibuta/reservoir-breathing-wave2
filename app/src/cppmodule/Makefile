@@ -12,7 +12,7 @@ EXT_SUFFIX := $(shell python3-config --extension-suffix)
 # =============================
 # ソースファイル
 # =============================
-SRC := /root/app/src/cppmodule/src/esn.cpp /root/app/src/cppmodule/src/SMatrix.cpp
+SRC := /root/app/src/cppmodule/src/esn.cpp /root/app/src/cppmodule/src/SMatrix.cpp /root/app/src/cppmodule/src/SMatrix2.cpp
 #TEST_SRC := main.cpp  # doctest用のテストファイル
 
 # =============================

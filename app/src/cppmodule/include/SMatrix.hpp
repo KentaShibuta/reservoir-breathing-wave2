@@ -10,10 +10,13 @@
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+
+#ifdef USE_PYBIND
 #include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 namespace py = pybind11;
+#endif
 
 class SMatrix{
     private:
@@ -45,8 +48,10 @@ class SMatrix{
         std::unique_ptr<std::vector<std::vector<float>>> matMul (const std::vector<std::vector<float>> &A, const std::vector<std::vector<float>> &B);
         std::unique_ptr<std::vector<std::vector<double>>> matMuld (const std::vector<std::vector<double>> &A, const std::vector<std::vector<double>> &B);
         std::unique_ptr<std::vector<std::vector<float>>> GetInverse (const std::vector<std::vector<float>>& mat);
+#ifdef USE_PYBIND
         std::unique_ptr<std::vector<std::vector<double>>> GetInversePy (const std::vector<std::vector<double>>& mat);
         py::tuple GetInversePy2 (py::array_t<double> mat);
+#endif
 };
 
 #endif // SMATRIX_H_
