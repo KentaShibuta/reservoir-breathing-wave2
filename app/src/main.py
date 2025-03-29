@@ -31,7 +31,7 @@ def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_i
     esn_cpp.SetW(model_W)
     esn_cpp.SetWout(model_Wout)
     esn_cpp.SetWin(model_Win)
-    esn_cpp.Print()
+    #esn_cpp.Print()
     Y_learning = esn_cpp.Train(train, train_labels)
 
     # 学習済みモデルをファイルに保存する
@@ -112,7 +112,7 @@ def create_model(input_data, show):
     train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch(show=False, isTrain=True)
 
     model_file = Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show)
-    Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
+    #Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
 
     print(f"created model file: {model_file}")
     return model_file
@@ -145,7 +145,6 @@ def Predict(input_data, model_file):
 
     # call c++ module
     model_Win, model_x, model_W, model_Wout =  model.Get()
-    #esn_cpp = ESNCpp(input, model_Win, model_W, model_Wout, model_x, leaking_rate)
     esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
     esn_cpp.SetWout(Wout)
     esn_cpp.SetW(model_W)
@@ -179,8 +178,8 @@ def main():
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=True, save=False, isTrain=isTrain)
 
-        #model_file = "/root/app/model/20250305_181243.pickle"
-        model_file = "/root/app/model/20250328_151435.pickle"
+        model_file = "/root/app/model/20250305_181243.pickle"
+        #model_file = "/root/app/model/20250328_151435.pickle"
         Predict(input_data, model_file)
 
     end = time.perf_counter() #計測終了

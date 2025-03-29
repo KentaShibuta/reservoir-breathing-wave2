@@ -254,7 +254,7 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
         }
     }
 
-    T epsilon = 1.0e-10;
+    T epsilon = 1.0e-5;
     // 特異値の逆数を計算（小さすぎる値は0にする）
     VectorType S_inv(S.size());
     for (size_t i = 0; i < (size_t)S.size(); ++i) {
