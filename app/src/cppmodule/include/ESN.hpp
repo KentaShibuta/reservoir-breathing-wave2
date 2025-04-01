@@ -26,33 +26,33 @@ class ESN{
         void set_Wout (const std::vector<std::vector<double>>& mat);
     
     public:
-        std::vector<std::vector<std::vector<double>>> vec_u;
-        std::vector<std::vector<double>> vec_w_in;
-        std::vector<std::vector<double>> vec_w;
-        std::vector<std::vector<double>> vec_w_out;
-        std::vector<double> vec_x;
-        double a_alpha;
+        std::vector<std::vector<std::vector<float>>> vec_u;
+        std::vector<std::vector<float>> vec_w_in;
+        std::vector<std::vector<float>> vec_w;
+        std::vector<std::vector<float>> vec_w_out;
+        std::vector<float> vec_x;
+        float a_alpha;
         size_t N;
         size_t N_window;
         size_t N_u;
         size_t N_x;
         size_t N_y;
 
-        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, double leaking_rate);
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate);
         ESN();
 #ifdef USE_PYBIND
-        ESN(py::array_t<double> u, py::array_t<double> w_in, py::array_t<double> w, py::array_t<double> w_out, py::array_t<double> x, double alpha);
+        ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha);
 #endif
 
         void Print();
 
 #ifdef USE_PYBIND
-        py::array_t<double> Predict(py::array_t<double> u);
-        py::array_t<double> Train(py::array_t<double> u, py::array_t<double> d);
-        void SetWout(py::array_t<double> w_out);
-        void SetWin(py::array_t<double> w_in);
-        void SetW(py::array_t<double> w);
-        py::array_t<double> GetWout();
+        py::array_t<float> Predict(py::array_t<float> u);
+        py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d);
+        void SetWout(py::array_t<float> w_out);
+        void SetWin(py::array_t<float> w_in);
+        void SetW(py::array_t<float> w);
+        py::array_t<float> GetWout();
 #endif
 
         template <typename MatrixType, typename VectorType, typename T>
