@@ -5,6 +5,7 @@ std::shared_ptr<spdlog::logger> SMatrix2::logger = nullptr;
 template <typename T>
 std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(std::size_t row_size, std::size_t col_size, T scale) {
     uint_fast32_t seed = 0;
+    /*
     std::mt19937 gen(seed); // メルセンヌ・ツイスター法による生成器
     std::uniform_real_distribution<T> dist(-1.0 * scale, std::nextafter(scale, std::numeric_limits<T>::max()));
 
@@ -12,6 +13,26 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
     for (std::size_t i = 0; i < row_size; i++) {
         for (std::size_t j = 0; j < col_size; j++) {
             (*numbers)[i][j] = dist(gen);
+        }
+    }
+    */
+
+    // numpyをインポート
+    py::module_ np = py::module_::import("numpy");
+    np.attr("random").attr("seed")(seed);
+    py::object uniform = np.attr("random").attr("uniform");
+
+    // 一様分布を取得
+    double scale_d = static_cast<double>(scale);
+    py::array_t<double> result = uniform(-1.0 * scale_d, scale_d, py::make_tuple(row_size, col_size)).cast<py::array_t<double>>();
+    // Python の配列のデータにアクセス
+    py::buffer_info buf_info = result.request();
+    double* ptr = static_cast<double*>(buf_info.ptr);
+
+    auto numbers = std::make_unique<std::vector<std::vector<T>>>(row_size, std::vector<T>(col_size));
+    for (std::size_t i = 0; i < row_size; i++) {
+        for (std::size_t j = 0; j < col_size; j++) {
+            (*numbers)[i][j] = static_cast<T>(ptr[i * col_size + j]);
         }
     }
     return numbers;

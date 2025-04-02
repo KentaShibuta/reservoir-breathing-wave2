@@ -261,7 +261,7 @@ std::unique_ptr<std::vector<std::vector<float>>> SMatrix::GetInverse (const std:
     Eigen::MatrixXf eigenMat = vectorMatrixToEigenMatrix(mat);
     Eigen::MatrixXd eigenMat_d = eigenMat.cast<double>();
 
-    std::cout << eigenMat_d << std::endl;
+    //std::cout << eigenMat_d << std::endl;
 
     // 特異値分解
     //Eigen::JacobiSVD<Eigen::MatrixXf> svd(eigenMat, Eigen::ComputeThinU | Eigen::ComputeThinV);
@@ -322,7 +322,7 @@ std::unique_ptr<std::vector<std::vector<float>>> SMatrix::GetInverse (const std:
     //Eigen::MatrixXd Ainv_d = svd.matrixV().transpose() * s.asDiagonal() * svd.matrixU().transpose();
     Eigen::MatrixXd Ainv_d = V * Sigma_pinv * U.transpose();
 
-    std::cout << Ainv_d(0,0) << std::endl;
+    //std::cout << Ainv_d(0,0) << std::endl;
     //Eigen::MatrixXd Ainv_d = svd.matrixU() * s.asDiagonal() * svd.matrixV().transpose();
     Eigen::MatrixXf Ainv = Ainv_d.cast<float>();
 
@@ -341,7 +341,7 @@ std::unique_ptr<std::vector<std::vector<double>>> SMatrix::GetInversePy (const s
     Eigen::MatrixXd eigenMat_d = vectorMatrixToEigenMatrixd(mat);
     //Eigen::MatrixXd eigenMat_d = eigenMat.cast<double>();
 
-    std::cout << eigenMat_d << std::endl;
+    //std::cout << eigenMat_d << std::endl;
 
     // 特異値分解
     //Eigen::JacobiSVD<Eigen::MatrixXd> svd(eigenMat_d, Eigen::ComputeThinU | Eigen::ComputeThinV);

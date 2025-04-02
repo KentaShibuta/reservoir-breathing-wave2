@@ -18,19 +18,19 @@ def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_i
     input_scale = 1.0
     rho = 0.9
     leaking_rate = 1.0
-    model = ESN(n_step, 1, N_x, density=density,
-                input_scale=input_scale, rho=rho, leaking_rate=leaking_rate)
+    #model = ESN(n_step, 1, N_x, density=density,
+    #            input_scale=input_scale, rho=rho, leaking_rate=leaking_rate)
     
     # 学習（線形回帰）
     # call python module
     #Y_learning = model.train(train, train_labels, Tikhonov(N_x, 1, 0.0))
 
     # call c++ module
-    model_Win, model_x, model_W, model_Wout =  model.Get()
+    #model_Win, model_x, model_W, model_Wout =  model.Get()
     esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
-    esn_cpp.SetW(model_W)
-    esn_cpp.SetWout(model_Wout)
-    esn_cpp.SetWin(model_Win)
+    #esn_cpp.SetW(model_W)
+    #esn_cpp.SetWout(model_Wout)
+    #esn_cpp.SetWin(model_Win)
     #esn_cpp.Print()
     Y_learning = esn_cpp.Train(train, train_labels)
 
@@ -72,16 +72,28 @@ def Predict_test(train, train_labels, train_labels_id, test, test_labels, test_l
     # ENSモデル
     N_x = Wout.shape[1]
     n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
-    model = ESN(n_step, 1, N_x, density=0.1,
-                input_scale=1.0, rho=0.9, leaking_rate= 1.0)
-    model.set_Wout(Wout)
+    density = 0.1
+    input_scale = 1.0
+    rho = 0.9
+    leaking_rate = 1.0
+
+    # Python module
+    #model = ESN(n_step, 1, N_x, density=density,
+    #            input_scale=input_scale, rho=rho, leaking_rate= leaking_rate)
+    #model.set_Wout(Wout)
+
+    # C++ module
+    esn_cpp = ESNCpp(n_step, 1, N_x, density, input_scale, rho, leaking_rate)
+    esn_cpp.SetWout(Wout)
 
     # 学習済みモデルを使って予測
     # 訓練データと使った推論
     feature = 1# 入力データの時間幅の何倍の時間幅を予測するか
-    train_Y = model.predict(train, feature)
+    #train_Y = model.predict(train, feature) # Python
+    train_Y = esn_cpp.Predict(train) # C++
     # テストデータと使った推論
-    test_Y = model.predict(test, feature)
+    #test_Y = model.predict(test, feature) # Python
+    test_Y = esn_cpp.Predict(test) # C++
 
     # 結果の可視化
     # オリジナルデータを可視化
@@ -112,7 +124,7 @@ def create_model(input_data, show):
     train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch(show=False, isTrain=True)
 
     model_file = Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show)
-    #Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
+    Predict_test(train, train_labels, train_labels_id, test, test_labels, test_labels_id, model_file)
 
     print(f"created model file: {model_file}")
     return model_file
@@ -135,20 +147,20 @@ def Predict(input_data, model_file):
     input_scale = 1.0
     rho = 0.9
     leaking_rate = 1.0
-    model = ESN(n_step, 1, N_x, density=0.1,
-                input_scale=1.0, rho=0.9, leaking_rate= leaking_rate)
-    model.set_Wout(Wout)
+    #model = ESN(n_step, 1, N_x, density=0.1,
+    #            input_scale=1.0, rho=0.9, leaking_rate= leaking_rate)
+    #model.set_Wout(Wout)
 
     # call python module
     #Y = model.predict(input, feature)
     #np.savetxt('./predict_py.csv', Y, delimiter=',')
 
     # call c++ module
-    model_Win, model_x, model_W, model_Wout =  model.Get()
+    #model_Win, model_x, model_W, model_Wout =  model.Get()
     esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
     esn_cpp.SetWout(Wout)
-    esn_cpp.SetW(model_W)
-    esn_cpp.SetWin(model_Win)
+    #esn_cpp.SetW(model_W)
+    #esn_cpp.SetWin(model_Win)
     Y = esn_cpp.Predict(input)
     #np.savetxt('./predict_cpp.csv', Y, delimiter=',')
 
@@ -178,8 +190,8 @@ def main():
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=True, save=False, isTrain=isTrain)
 
-        model_file = "/root/app/model/20250305_181243.pickle"
-        #model_file = "/root/app/model/20250328_151435.pickle"
+        #model_file = "/root/app/model/20250305_181243.pickle"
+        model_file = "/root/app/model/20250402_131235.pickle"
         Predict(input_data, model_file)
 
     end = time.perf_counter() #計測終了
