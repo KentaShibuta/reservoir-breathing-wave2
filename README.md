@@ -32,7 +32,8 @@
         ```
 
 # License
-This product incorporates the following software.
+The source code is licensed [BSD 3-Clause License](LICENSE).  
+This source code incorporates the following software.
 * Eigen
    * https://eigen.tuxfamily.org/index.php?title=Main_Page
    * [Mozilla Public License 2.0](https://www.mozilla.org/en-US/MPL/2.0/)
