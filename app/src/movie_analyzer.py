@@ -55,15 +55,20 @@ class MovieAnalyzer:
         print(f"number of comprssed pixels: {width * height}")
 
         # 2値化
-        th = [cv2.threshold(grayImages[i], 100, 255,cv2.THRESH_BINARY)[1] for i in range(len(grayImages))]
+        th = [cv2.threshold(grayImages[i], 100, 255,cv2.THRESH_BINARY)[1] // 255 for i in range(len(grayImages))]
         th_array = np.array(th)
 
         # 特徴量に変換
         # 画像ごとに全ピクセルの2値化の値の和を計算
         breathing_wave = [np.sum(th[i]) for i in range(len(th))]
+
+
+
         # 正規化
-        scaler = MinMaxScaler()
+        scaler = MinMaxScaler(feature_range=(0, 1), copy=True)
         breathing_wave = np.array(breathing_wave)
+        breathing_wave = scaler.fit_transform(breathing_wave.reshape(-1, 1)).flatten()
+
         peaks, _ = find_peaks(breathing_wave, distance=30)
         print(f"peakNum: {len(peaks)}")
 

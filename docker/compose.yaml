@@ -7,5 +7,6 @@ services:
          - ../app/data:/root/app/data
          - ../app/model:/root/app/model
          - ../app/lib:/root/app/lib
+         - ../app/.vscode:/root/app/.vscode
       stdin_open: true
       tty: true

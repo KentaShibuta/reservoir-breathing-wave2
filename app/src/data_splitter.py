@@ -30,11 +30,13 @@ class dataset:
 
 class data_splitter:
     def __init__(self, original_data, test_size, isTrain = True):
-        self.window_size = 5
+        self.window_size = 1
         self.N = 1
 
-        explanatory = original_data[:, :-1].astype(np.uint8)
-        response = original_data[:, -1].astype(np.float32)
+        print(f"original_dataのサイズ: {original_data.shape}")
+
+        explanatory =  original_data if isTrain == False else original_data[:, :-1].astype(np.uint8)
+        response = np.zeros_like(original_data[:, -1]) if isTrain == False else original_data[:, -1].astype(np.float32)
         
         # インデックスデータの作成
         index = np.array(range(original_data.shape[0])).astype(np.uint32)
@@ -67,6 +69,7 @@ class data_splitter:
             self.test.show()
         else:
             self.input = dataset(index, explanatory, response)
+            self.input.show()
 
             del(original_data)
             del(explanatory)
@@ -129,7 +132,7 @@ class data_splitter:
                 plt.legend()
 
                 plt.xlabel("time step")
-                plt.ylabel("Y")
+                plt.ylabel("breathing wave")
                 plt.show()
 
             print(f"train_size:{train.shape}")

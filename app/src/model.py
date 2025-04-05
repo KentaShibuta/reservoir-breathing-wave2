@@ -163,6 +163,7 @@ class ESN:
         self.Output = Output(N_x, N_y)
         self.N_u = N_u
         self.N_y = N_y
+        #print("N_y: " + str(self.N_y))
         self.N_x = N_x
 
     # バッチ学習
@@ -187,6 +188,9 @@ class ESN:
                 # リザバー状態ベクトル
                 x = self.Reservoir(x_in)
 
+                #if n == 0 and step == len(U[n]) - 1:
+                #    print(x)
+
                 if step == len(U[n]) - 1:
                     # 目標値
                     d = D[n]
@@ -201,6 +205,8 @@ class ESN:
 
         # 学習済みの出力結合重み行列を設定
         self.Output.setweight(optimizer.get_Wout_opt())
+
+        #print(self.Output)
 
         # モデル出力（学習前）
         return np.array(Y)
