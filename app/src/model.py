@@ -163,7 +163,7 @@ class ESN:
         self.Output = Output(N_x, N_y)
         self.N_u = N_u
         self.N_y = N_y
-        print("N_y: " + str(self.N_y))
+        #print("N_y: " + str(self.N_y))
         self.N_x = N_x
 
     # バッチ学習
@@ -188,8 +188,8 @@ class ESN:
                 # リザバー状態ベクトル
                 x = self.Reservoir(x_in)
 
-                if n == 0 and step == len(U[n]) - 1:
-                    print(x)
+                #if n == 0 and step == len(U[n]) - 1:
+                #    print(x)
 
                 if step == len(U[n]) - 1:
                     # 目標値

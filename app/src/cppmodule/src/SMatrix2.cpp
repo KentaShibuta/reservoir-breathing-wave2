@@ -255,6 +255,7 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
     /////////////
 
     // U, S, V の取得
+    /*
     SMatrix2::logger->debug("Run SMatrix2::GetInversePy");
     SMatrix2::logger->debug("V:");
     for (int i = 0; i < V.rows(); ++i) {
@@ -274,6 +275,7 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
             SMatrix2::logger->debug("U[{}][{}] = {}", i, j, U(i, j));
         }
     }
+    */
 
     T epsilon = 1.0e-5;
     // 特異値の逆数を計算（小さすぎる値は0にする）
@@ -291,12 +293,14 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
     // 擬似逆行列を計算
     MatrixType Ainv = V * Sigma_pinv * U.transpose();
 
+    /*
     std::cout << Ainv(0,0) << std::endl;
     for (int i = 0; i < Ainv.rows(); ++i) {
         for (int j = 0; j < Ainv.cols(); ++j) {
             SMatrix2::logger->debug("Ainv[{}][{}] = {}", i, j, Ainv(i, j));
         }
     }
+    */
 
     // 擬似逆行列をvectorに変換
     return eigenMatrixToUniquePtr<MatrixType, T>(Ainv);

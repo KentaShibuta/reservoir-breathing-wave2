@@ -30,7 +30,7 @@ class dataset:
 
 class data_splitter:
     def __init__(self, original_data, test_size, isTrain = True):
-        self.window_size = 5
+        self.window_size = 1
         self.N = 1
 
         print(f"original_dataのサイズ: {original_data.shape}")
@@ -132,7 +132,7 @@ class data_splitter:
                 plt.legend()
 
                 plt.xlabel("time step")
-                plt.ylabel("Y")
+                plt.ylabel("breathing wave")
                 plt.show()
 
             print(f"train_size:{train.shape}")
