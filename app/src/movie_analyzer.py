@@ -13,6 +13,8 @@ import csv
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 from PIL import Image
+import json
+import sys
 
 class Frame:
     def __init__(self, top, bottom, left, right):
@@ -27,13 +29,25 @@ class Frame:
 
 class MovieAnalyzer:
     def __init__(self, movie_file):
-        
-        self.movie = Movie()
-        self.frame = Frame(top=460, bottom=660, left=160, right=560)
-        self.movie.Read(movie_file)
-        self.movie.SplitFrame(self.frame)
+        rect_file = "/root/app/data/input_rect.json"
+        if os.path.exists(rect_file):
+            with open(rect_file) as f:
+                rect = json.load(f)
 
-        self.image = self.movie.GetImage()
+                self.movie = Movie()
+                self.frame = Frame(top=rect["y1"], bottom=rect["y2"], left=rect["x1"], right=rect["x2"])
+        else:
+            print(f"{rect_file} は存在しません。")
+            sys.exit(1)
+
+        if os.path.exists(movie_file):
+            self.movie.Read(movie_file)
+            self.movie.SplitFrame(self.frame)
+            self.image = self.movie.GetImage()
+        else:
+            print(f"{movie_file} は存在しません。")
+            sys.exit(1)
+
     
     def CreateBreathingWave(self, compression_ratio, show = False):
         print("[START] getting breathing wave")

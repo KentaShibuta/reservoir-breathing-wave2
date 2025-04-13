@@ -252,7 +252,7 @@ def main():
         # train
         logger.info("[Start] Train")
         logger.info("[Start] Read data and create frame images")
-        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
+        movie_file = "/root/app/data/input_video.mp4"
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
@@ -264,7 +264,7 @@ def main():
         # predict
         logger.info("[Start] Predict")
         logger.info("[Start] Read data and create frame images")
-        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
+        movie_file = "/root/app/data/input_video.mp4"
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
