@@ -103,7 +103,7 @@ class MovieAnalyzer:
 
         color_array = np.array(colorImages)
         print(color_array[0])
-        color_array = np.array(colorImages, dtype=np.uint8)
+        color_array = np.array(colorImages, dtype=np.float32)
         print(color_array[0])
         print(f"color_array.shape:{color_array.shape}")
 
@@ -135,6 +135,7 @@ class MovieAnalyzer:
 
         _, breathing_wave = self.CreateBreathingWave(compression_ratio, show) if isTrain == True else (None, None)
         image_array = self.CreateColorHistogram(compression_ratio)
+        image_array /= 255
         
         print(image_array.shape)
         print(image_array[0, 0].dtype)

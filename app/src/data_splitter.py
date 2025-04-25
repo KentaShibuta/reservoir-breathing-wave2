@@ -35,7 +35,7 @@ class data_splitter:
 
         print(f"original_dataのサイズ: {original_data.shape}")
 
-        explanatory =  original_data if isTrain == False else original_data[:, :-1].astype(np.uint8)
+        explanatory =  original_data if isTrain == False else original_data[:, :-1].astype(np.float32)
         response = np.zeros_like(original_data[:, -1]) if isTrain == False else original_data[:, -1].astype(np.float32)
         
         # インデックスデータの作成

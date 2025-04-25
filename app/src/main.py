@@ -11,6 +11,7 @@ import enum
 from scipy.signal import find_peaks
 import logging
 from logging import FileHandler
+from narma import NARMA
 
 np.random.seed(seed=0)
 
@@ -238,6 +239,7 @@ def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
         None
 
 def main():
+    """
     start = time.perf_counter() #計測開始
     isTrain = True
     moduleType = ModuleType.cpp
@@ -275,7 +277,84 @@ def main():
 
     end = time.perf_counter() #計測終了
     print('{:.2f}'.format((end-start)/60))
+    """
 
+    # データ長
+    T = 900  # 訓練用
+    T_test = 100  # 検証用
+
+    order = 10  # NARMAモデルの次数
+    dynamics = NARMA(order, a1=0.3, a2=0.05, a3=1.5, a4=0.1)
+    y_init = [0] * order
+    u, d = dynamics.generate_data(T + T_test, y_init)
+
+    # 学習・テスト用情報
+    train_U = u[:T].reshape(-1, 1)
+    train_D = d[:T].reshape(-1, 1)
+    test_U = u[T:].reshape(-1, 1)
+    test_D = d[T:].reshape(-1, 1)
+
+    # ESNモデル
+    N_x = 50
+    n_step = train_U.shape[1]
+    n_y = train_D.shape[1]
+    density = 0.15
+    input_scale = 0.1
+    rho = 0.9
+    leaking_rate = 1.0
+
+    esn_cpp = ESNCpp(1, 1, N_x, density, input_scale, rho, leaking_rate)
+    #model = ESN(n_step, n_y, N_x,
+    #            density=density, input_scale=input_scale, rho=rho)#,
+                #fb_scale=0.1, fb_seed=0)
+
+    # 学習（リッジ回帰）
+
+    train_DT = train_D.reshape(-1)
+    train_Y = esn_cpp.Train(train_U, train_DT)
+    #train_Y = model.train(train_U, train_D,
+    #                      Tikhonov(N_x, train_D.shape[1], 1e-4))
+
+    # モデル出力
+    test_Y = esn_cpp.Predict(test_U)
+    #test_Y = model.predict(test_U)
+
+    # 評価（テスト誤差RMSE, NRMSE）
+    RMSE = np.sqrt(((test_D - test_Y) ** 2).mean())
+    NRMSE = RMSE/np.sqrt(np.var(test_D))
+    print('RMSE =', RMSE)
+    print('NRMSE =', NRMSE)
+
+    # グラフ表示用データ
+    T_disp = (-100, 100)
+    t_axis = np.arange(T_disp[0], T_disp[1])
+    disp_U = np.concatenate((train_U[T_disp[0]:], test_U[:T_disp[1]]))
+    disp_D = np.concatenate((train_D[T_disp[0]:], test_D[:T_disp[1]]))
+    disp_Y = np.concatenate((train_Y[T_disp[0]:], test_Y[:T_disp[1]]))
+
+    # グラフ表示
+    plt.rcParams['font.size'] = 12
+    fig = plt.figure(figsize=(7, 5))
+    plt.subplots_adjust(hspace=0.3)
+
+    ax1 = fig.add_subplot(2, 1, 1)
+    ax1.text(-0.15, 1, '(a)', transform=ax1.transAxes)
+    ax1.text(0.2, 1.05, 'Training', transform=ax1.transAxes)
+    ax1.text(0.7, 1.05, 'Testing', transform=ax1.transAxes)
+    plt.plot(t_axis, disp_U[:,0], color='k')
+    plt.ylabel('Input')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    ax2 = fig.add_subplot(2, 1, 2)
+    ax2.text(-0.15, 1, '(b)', transform=ax2.transAxes)
+    plt.plot(t_axis, disp_D[:,0], color='k', label='Target')
+    plt.plot(t_axis, disp_Y[:,0], color='gray', linestyle='--', label='Model')
+    plt.xlabel('n')
+    plt.ylabel('Output')
+    plt.legend(bbox_to_anchor=(1, 1), loc='upper right')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    plt.show()
 
 if __name__ == '__main__':
     main()

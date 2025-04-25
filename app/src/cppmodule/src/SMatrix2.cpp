@@ -143,12 +143,12 @@ template std::unique_ptr<std::vector<std::vector<uint8_t>>> SMatrix2::generate_e
 
 template <typename T>
 std::unique_ptr<std::vector<T>> SMatrix2::dot (const std::vector<std::vector<T>> &mat, const std::vector<T> &vec){
-    size_t vec_size = vec.size();
+    size_t vec_size = mat.size();
     auto y = std::make_unique<std::vector<T>>(vec_size, 0.0);
 
     #pragma omp parallel for
     for (size_t i = 0; i < mat.size(); i++) {
-        for (size_t j = 0; j < vec_size; j++) {
+        for (size_t j = 0; j < mat[0].size(); j++) {
             (*y)[i] += mat[i][j] * vec[j];
         }
     }

@@ -26,7 +26,7 @@ class ESN{
         void set_Wout (const std::vector<std::vector<double>>& mat);
     
     public:
-        std::vector<std::vector<std::vector<float>>> vec_u;
+        std::vector<std::vector<float>> vec_u;
         std::vector<std::vector<float>> vec_w_in;
         std::vector<std::vector<float>> vec_w;
         std::vector<std::vector<float>> vec_w_out;
