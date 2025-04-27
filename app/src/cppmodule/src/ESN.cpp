@@ -17,6 +17,7 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
     }
 }
 
+#ifdef USE_PYBIND
 ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate){
     m_matlib = SMatrix2();
     N_u = n_u;
@@ -36,6 +37,7 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     vec_x = *x_ptr;
     a_alpha = leaking_rate;
 }
+#endif
 
 ESN::ESN(){
     m_matlib = SMatrix2();
@@ -569,6 +571,7 @@ py::array_t<float> ESN::GetWout(){
 }
 #endif
 
+#ifdef USE_PYBIND
 template <typename MatrixType, typename VectorType, typename T>
 std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x, T density, T rho) {
     auto connection_matrix = std::make_unique<std::vector<std::vector<T>>>(N_x, std::vector<T>(N_x));
@@ -610,6 +613,7 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
 
     return connection_matrix;
 }
+#endif
 
 #ifdef USE_PYBIND
 py::tuple ESN::GetInversePy2 (py::array_t<double> mat){
@@ -674,6 +678,7 @@ TEST_CASE("[test] matrix mul") {
     std::cout << "[PASS] matrix mul" << std::endl;
 }
 
+/*
 TEST_CASE("[test] create init matrix") {
     std::cout << "[START] create init matrix" << std::endl;
     SMatrix2 matlib = SMatrix2();
@@ -727,31 +732,16 @@ TEST_CASE("[test] create init matrix") {
     std::cout << "[result] w" << std::endl;
     std::cout << "row_size: " << (*w).size() << std::endl;
     std::cout << "col_size: " << (*w)[0].size() << std::endl;
-    /*
-    for (const auto &row : *w){
-        for (const auto &elem : row){
-            std::cout << elem << " ";
-        }
-        std::cout << std::endl;
-    }
-    */
 
     std::cout << std::endl;
 
     std::cout << "[result] w_out" << std::endl;
     std::cout << "row_size: " << (*w_out).size() << std::endl;
     std::cout << "col_size: " << (*w_out)[0].size() << std::endl;
-    /*
-    for (const auto &row : *w_out){
-        for (const auto &elem : row){
-            std::cout << elem << " ";
-        }
-        std::cout << std::endl;
-    }
-    */
 
     std::cout << "[PASS] create init matrix" << std::endl;
 }
+*/
 
 TEST_CASE("[test] inv matrix") {
     std::cout << "[START] inv matrix" << std::endl;
@@ -799,8 +789,8 @@ TEST_CASE("[test] SMatrix2") {
     ///////////////
     size_t row_size = 10;
     size_t col_size = 10;
-    double scale_d = 1.0;
-    float scale_f = 1.0f;
+    //double scale_d = 1.0;
+    //float scale_f = 1.0f;
     double mean_d = 0.0;
     float mean_f = 0.0f;
     double stddev_d = 1.0;
@@ -834,6 +824,16 @@ TEST_CASE("[test] SMatrix2") {
     std::vector<double> vec_d = {1.0, -2.0, 3.0};
     std::vector<float> vec_f = {1.0f, -2.0f, 3.0f};
 
+    std::vector<std::vector<float>> A_one = {
+        {1.0},
+        {4.0},
+        {7.0}
+    };
+
+    std::vector<float> vec_one = {2.0f};
+
+
+    /*
     std::cout << "generate_uniform_random" << std::endl;
     auto uniform_rand_mat_d = matlib2.generate_uniform_random(row_size, col_size, scale_d);
     std::cout << typeid((*uniform_rand_mat_d)[0][0]).name() << std::endl;
@@ -841,6 +841,7 @@ TEST_CASE("[test] SMatrix2") {
     auto uniform_rand_mat_f = matlib2.generate_uniform_random(row_size, col_size, scale_f);
     std::cout << typeid((*uniform_rand_mat_f)[0][0]).name() << std::endl;
     CHECK(std::string(typeid((*uniform_rand_mat_f)[0][0]).name()) == "f");
+    */
 
     std::cout << "generate_normal_distribution" << std::endl;
     auto normal_rand_mat_d = matlib2.generate_normal_distribution(row_size, col_size, mean_d, stddev_d);
@@ -881,6 +882,13 @@ TEST_CASE("[test] SMatrix2") {
     auto dot_f = matlib2.dot(A_f, vec_f);
     std::cout << typeid((*dot_f)[0]).name() << std::endl;
     CHECK(std::string(typeid((*dot_f)[0]).name()) == "f");
+
+    std::cout << "Matrix(NxOne) dot Vector(OnexOne)" << std::endl;
+    auto dot_one = matlib2.dot(A_one, vec_one);
+    std::cout << "A_one shape: " << A_one.size() << ", " << A_one[0].size() << std::endl;
+    std::cout << "A_one * vec_one shape: " << (*dot_d).size() << std::endl;
+    CHECK(dot_one != nullptr);
+    CHECK((*dot_one).size() == A_one.size());
 
     std::cout << "matMul" << std::endl;
     auto matMul_d = matlib2.matMul(A_d, B_d);
