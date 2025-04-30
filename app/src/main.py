@@ -161,7 +161,7 @@ def create_model(input_data, show, moduleType = ModuleType.cpp):
 
     logger.info("[Start] Split into training and test data")
     splitter =  data_splitter(input_data, test_size=0.3, isTrain=True)
-    train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch(show=False, isTrain=True)
+    train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch2(show=False, isTrain=True)
     logger.info("[Finish] Split into training and test data")
 
     model_file = Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show, moduleType=moduleType)
@@ -173,10 +173,14 @@ def create_model(input_data, show, moduleType = ModuleType.cpp):
 
 def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
     splitter =  data_splitter(input_data, test_size=0, isTrain=False)
-    input = splitter.create_batch(show=False, isTrain=False)
-    print("python N: " + str(input.shape[0]))
-    print("python N_window: " + str(input.shape[1]))
-    print("python N_u: " + str(input.shape[2]))
+    input = splitter.create_batch2(show=False, isTrain=False)
+    if input_data.ndim == 3:
+        print("python N: " + str(input.shape[0]))
+        print("python N_window: " + str(input.shape[1]))
+        print("python N_u: " + str(input.shape[2]))
+    else:
+        print("python N: " + str(input.shape[0]))
+        print("python N_u: " + str(input.shape[1]))
     feature = 1# 入力データの時間幅の何倍の時間幅を予測するか
 
     ### pickleで保存したファイルを読み込み
@@ -192,7 +196,7 @@ def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
 
     if moduleType == ModuleType.cpp:
         # 推論
-        esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
+        esn_cpp = ESNCpp(n_step, Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
         logger.info("[Start] esn_cpp.SetWout")
         esn_cpp.SetWout(Wout)
         logger.info("[Finish] esn_cpp.SetWout")
@@ -238,47 +242,7 @@ def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
     else:
         None
 
-def main():
-    """
-    start = time.perf_counter() #計測開始
-    isTrain = True
-    moduleType = ModuleType.cpp
-    show = True
-
-    if moduleType == ModuleType.cpp:
-        logger.info("Use cpp module")
-    else:
-        logger.info("Use python module")
-
-    if isTrain == True:
-        # train
-        logger.info("[Start] Train")
-        logger.info("[Start] Read data and create frame images")
-        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
-        analyzer = MovieAnalyzer(movie_file)
-        input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
-        logger.info("[Finish] Read data and create frame images")
-
-        # モデル評価用の推論処理を呼び出す
-        model_file = create_model(input_data, show=show, moduleType=moduleType)
-        logger.info("[Finish] Train")
-    else:
-        # predict
-        logger.info("[Start] Predict")
-        logger.info("[Start] Read data and create frame images")
-        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
-        analyzer = MovieAnalyzer(movie_file)
-        input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
-        logger.info("[Finish] Read data and create frame images")
-
-        model_file = "/root/app/model/20250405_013307.pickle"
-        Predict(input_data, model_file, show=show, moduleType=moduleType)
-        logger.info("[Finish] Predict")
-
-    end = time.perf_counter() #計測終了
-    print('{:.2f}'.format((end-start)/60))
-    """
-
+def NARMA_TEST():
     # データ長
     T = 900  # 訓練用
     T_test = 100  # 検証用
@@ -355,6 +319,47 @@ def main():
     plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
 
     plt.show()
+
+def main():
+    #NARMA_TEST()
+
+    start = time.perf_counter() #計測開始
+    isTrain = True
+    moduleType = ModuleType.cpp
+    show = True
+
+    if moduleType == ModuleType.cpp:
+        logger.info("Use cpp module")
+    else:
+        logger.info("Use python module")
+
+    if isTrain == True:
+        # train
+        logger.info("[Start] Train")
+        logger.info("[Start] Read data and create frame images")
+        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
+        analyzer = MovieAnalyzer(movie_file)
+        input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
+        logger.info("[Finish] Read data and create frame images")
+
+        # モデル評価用の推論処理を呼び出す
+        model_file = create_model(input_data, show=show, moduleType=moduleType)
+        logger.info("[Finish] Train")
+    else:
+        # predict
+        logger.info("[Start] Predict")
+        logger.info("[Start] Read data and create frame images")
+        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
+        analyzer = MovieAnalyzer(movie_file)
+        input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
+        logger.info("[Finish] Read data and create frame images")
+
+        model_file = "/root/app/model/20250405_013307.pickle"
+        Predict(input_data, model_file, show=show, moduleType=moduleType)
+        logger.info("[Finish] Predict")
+
+    end = time.perf_counter() #計測終了
+    print('{:.2f}'.format((end-start)/60))
 
 if __name__ == '__main__':
     main()

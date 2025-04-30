@@ -469,7 +469,7 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
 
     std::cout << "cpp Wout" << std::endl;
     for (size_t i = 0; i < N_x; i++){
-        std::cout << (*mul)[0][i] << " ";
+        //std::cout << (*mul)[0][i] << " ";
         file_logger->debug("mul[0][{}] = {}", i, (*mul)[0][i]);
     }
     std::cout << std::endl;

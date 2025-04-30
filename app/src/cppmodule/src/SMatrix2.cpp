@@ -1,19 +1,25 @@
 #include "SMatrix2.hpp"
+#include "SUtil.hpp"
 
 std::shared_ptr<spdlog::logger> SMatrix2::logger = nullptr;
 
 #ifdef USE_PYBIND
 template <typename T>
 std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(std::size_t row_size, std::size_t col_size, T scale) {
+    //size_t rand_num = row_size * col_size;
+    //std::vector<double> check(rand_num, 0.0);
+
     uint_fast32_t seed = 0;
+
     /*
     std::mt19937 gen(seed); // メルセンヌ・ツイスター法による生成器
-    std::uniform_real_distribution<T> dist(-1.0 * scale, std::nextafter(scale, std::numeric_limits<T>::max()));
+    std::uniform_real_distribution<double> dist(-1.0 * scale, 1.0 * scale);
 
     auto numbers = std::make_unique<std::vector<std::vector<T>>>(row_size, std::vector<T>(col_size));
     for (std::size_t i = 0; i < row_size; i++) {
         for (std::size_t j = 0; j < col_size; j++) {
-            (*numbers)[i][j] = dist(gen);
+            (*numbers)[i][j] = static_cast<T>(dist(gen));
+            //check[i*col_size + j] = (*numbers)[i][j];
         }
     }
     */
@@ -34,8 +40,18 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
     for (std::size_t i = 0; i < row_size; i++) {
         for (std::size_t j = 0; j < col_size; j++) {
             (*numbers)[i][j] = static_cast<T>(ptr[i * col_size + j]);
+            //check[i*col_size + j] = (*numbers)[i][j];
         }
     }
+
+    /*
+    std::sort(check.begin(), check.end());
+    outputcsv1d(check);
+
+    plt::plot(check);
+    plt::show();
+    */
+
     return numbers;
 }
 template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::generate_uniform_random<double> (size_t, size_t, double);
@@ -155,7 +171,7 @@ std::unique_ptr<std::vector<T>> SMatrix2::dot (const std::vector<std::vector<T>>
         return nullptr;
     }
 
-    std::cout << "vector size of matrix dot vector: " << (*y).size() << std::endl;
+    //std::cout << "vector size of matrix dot vector: " << (*y).size() << std::endl;
 
     #pragma omp parallel for
     for (size_t i = 0; i < mat.size(); i++) {
@@ -201,7 +217,7 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
     // matをEigenに変換
     MatrixType eigenMat = vectorMatrixToEigenMatrix<MatrixType, T>(mat);
 
-    std::cout << eigenMat << std::endl;
+    //std::cout << eigenMat << std::endl;
 
     // 特異値分解
     //Eigen::JacobiSVD<Eigen::MatrixXd> svd(eigenMat, Eigen::ComputeThinU | Eigen::ComputeThinV);
