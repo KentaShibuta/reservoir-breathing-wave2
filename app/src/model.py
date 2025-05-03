@@ -181,6 +181,7 @@ class ESN:
         Y = []
 
         # 時間発展
+        """
         for n in range(train_len):
             for step in range(len(U[n])):
                 x_in = self.Input(U[n][step])
@@ -202,6 +203,23 @@ class ESN:
                     # 学習前のモデル出力
                     y = self.Output(x)
                     Y.append(y)
+        """
+        for n in range(train_len):
+            x_in = self.Input(U[n])
+
+            # リザバー状態ベクトル
+            x = self.Reservoir(x_in)
+
+            # 目標値
+            d = D[n]
+
+            # 学習器
+            if n > trans_len:  # 過渡期を過ぎたら
+                optimizer(d, x)
+
+            # 学習前のモデル出力
+            y = self.Output(x)
+            Y.append(y)
 
         # 学習済みの出力結合重み行列を設定
         self.Output.setweight(optimizer.get_Wout_opt())
@@ -215,6 +233,7 @@ class ESN:
     def predict(self, U, feature = 1):
         Y_pred = []
 
+        """
         # 時間発展
         input = np.zeros_like(U[0])
         for n in range(len(U)):
@@ -230,6 +249,17 @@ class ESN:
                     # 学習後のモデル出力
                     y_pred = self.Output(x)
                     Y_pred.append(y_pred)
+        """
+        # 時間発展
+        for n in range(len(U)):
+            x_in = self.Input(U[n])
+
+            # リザバー状態ベクトル
+            x = self.Reservoir(x_in)
+
+            # 学習後のモデル出力
+            y_pred = self.Output(x)
+            Y_pred.append(y_pred)
 
         # モデル出力（学習後）
         return np.array(Y_pred)

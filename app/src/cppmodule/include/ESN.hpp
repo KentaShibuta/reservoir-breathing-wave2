@@ -26,7 +26,7 @@ class ESN{
         void set_Wout (const std::vector<std::vector<double>>& mat);
     
     public:
-        std::vector<std::vector<std::vector<float>>> vec_u;
+        std::vector<std::vector<float>> vec_u;
         std::vector<std::vector<float>> vec_w_in;
         std::vector<std::vector<float>> vec_w;
         std::vector<std::vector<float>> vec_w_out;
@@ -38,9 +38,9 @@ class ESN{
         size_t N_x;
         size_t N_y;
 
-        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate);
         ESN();
 #ifdef USE_PYBIND
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate);
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha);
 #endif
 
@@ -53,10 +53,10 @@ class ESN{
         void SetWin(py::array_t<float> w_in);
         void SetW(py::array_t<float> w);
         py::array_t<float> GetWout();
-#endif
 
         template <typename MatrixType, typename VectorType, typename T>
         std::unique_ptr<std::vector<std::vector<T>>> make_connection_mat(size_t N_x, T density, T rho);
+#endif
 
 #ifdef USE_PYBIND
         py::tuple GetInversePy2 (py::array_t<double> mat);

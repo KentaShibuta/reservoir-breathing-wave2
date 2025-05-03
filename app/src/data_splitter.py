@@ -35,7 +35,7 @@ class data_splitter:
 
         print(f"original_dataのサイズ: {original_data.shape}")
 
-        explanatory =  original_data if isTrain == False else original_data[:, :-1].astype(np.uint8)
+        explanatory =  original_data if isTrain == False else original_data[:, :-1].astype(np.float32)
         response = np.zeros_like(original_data[:, -1]) if isTrain == False else original_data[:, -1].astype(np.float32)
         
         # インデックスデータの作成
@@ -47,6 +47,10 @@ class data_splitter:
             train_index, test_index = train_test_split(index, test_size=test_size, shuffle=shuffle)
             train_explanatory, test_explanatory = train_test_split(explanatory, test_size=test_size, shuffle=shuffle)
             train_response, test_response = train_test_split(response, test_size=test_size, shuffle=shuffle)
+            if train_response.ndim == 1:
+                train_response = train_response.reshape(-1,1)
+            if test_response.ndim == 1:
+                test_response = test_response.reshape(-1,1)
 
             del(original_data)
             del(explanatory)
@@ -168,6 +172,94 @@ class data_splitter:
             del(response)
 
             return input#, input_labels, input_labels_index
+
+    def create_batch2(self, show=False, isTrain=True):
+        print("create batch")
+
+        if isTrain == True:
+            # 学習用データ作成
+            train_index, train_explanatory, train_response = self.train.getdata()
+            train_index_size, train_explanatory_size, train_response_size = self.train.getsize()
+            del(self.train)
+
+            self.series_size = train_explanatory_size[1] # 説明変数の系列数
+            n_train = train_explanatory_size[0]
+            n_train_response_size = train_response_size[1] # 目的変数の系列数
+
+            print("create train data")
+            # 正解データを準備
+            train = np.zeros((n_train, self.series_size))
+            train_labels = np.zeros((n_train, n_train_response_size))
+            train_labels_index = np.zeros(n_train)
+            for i in range(n_train):
+                train[i] = train_explanatory[i]
+                train_labels[i] = train_response[i]
+                train_labels_index[i] = train_index[i]
+
+            print("end create train data")
+
+            del(train_index)
+            del(train_explanatory)
+            del(train_response)
+
+            test_index, test_explanatory, test_response = self.test.getdata()
+            test_index_size, test_explanatory_size, test_response_size = self.test.getsize()
+            del(self.test)
+            n_test = test_explanatory_size[0]
+            n_test_response_size = test_response_size[1] # 目的変数の系列数
+
+            print("create test data")
+            # テストデータを準備
+            test = np.zeros((n_test, self.series_size))
+            test_labels = np.zeros((n_test, n_test_response_size))
+            test_labels_index = np.zeros(n_test)
+            for i in range(n_test):
+                test[i] = test_explanatory[i]
+                test_labels[i] = test_response[i]
+                test_labels_index[i] = test_index[i]
+
+            print("end create test data")
+
+            del(test_index)
+            del(test_explanatory)
+            del(test_response)
+
+            if show == True:
+                plt.plot(train_labels_index, train_labels, label='train')
+                plt.plot(test_labels_index, test_labels, label='test')
+                plt.legend()
+
+                plt.xlabel("time step")
+                plt.ylabel("breathing wave")
+                plt.show()
+
+            print(f"train_size:{train.shape}")
+            print(f"train_labels_size:{train_labels.shape}")
+            print(f"test_size:{test.shape}")
+            print(f"test_labels_size:{test_labels.shape}")
+
+            return train, train_labels, train_labels_index, test, test_labels, test_labels_index
+        else:
+            # 学習用データ作成
+            index, explanatory, response = self.input.getdata()
+            index_size, explanatory_size, response_size = self.input.getsize()
+            del(self.input)
+
+            self.series_size = explanatory_size[1] # 説明変数の系列数
+            n_input = explanatory_size[0]
+
+            print("create train data")
+            # 正解データを準備
+            input = np.zeros((n_input, self.series_size))
+            for i in range(n_input):
+                input[i] = explanatory[i]
+            print("end create train data")
+
+            del(index)
+            del(explanatory)
+            del(response)
+
+            return input
 
     def read_binary(self, filename):
         with open(filename, mode='br') as fi:
