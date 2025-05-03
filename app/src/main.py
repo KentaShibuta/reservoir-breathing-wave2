@@ -273,9 +273,7 @@ def NARMA_TEST():
                 #fb_scale=0.1, fb_seed=0)
 
     # 学習（リッジ回帰）
-
-    train_DT = train_D.reshape(-1)
-    train_Y = esn_cpp.Train(train_U, train_DT)
+    train_Y = esn_cpp.Train(train_U, train_D)
     #train_Y = model.train(train_U, train_D,
     #                      Tikhonov(N_x, train_D.shape[1], 1e-4))
 
@@ -354,7 +352,7 @@ def main():
         input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
 
-        model_file = "/root/app/model/20250405_013307.pickle"
+        model_file = "/root/app/model/20250503_084922.pickle"
         Predict(input_data, model_file, show=show, moduleType=moduleType)
         logger.info("[Finish] Predict")
 

@@ -47,6 +47,10 @@ class data_splitter:
             train_index, test_index = train_test_split(index, test_size=test_size, shuffle=shuffle)
             train_explanatory, test_explanatory = train_test_split(explanatory, test_size=test_size, shuffle=shuffle)
             train_response, test_response = train_test_split(response, test_size=test_size, shuffle=shuffle)
+            if train_response.ndim == 1:
+                train_response = train_response.reshape(-1,1)
+            if test_response.ndim == 1:
+                test_response = test_response.reshape(-1,1)
 
             del(original_data)
             del(explanatory)
@@ -180,11 +184,12 @@ class data_splitter:
 
             self.series_size = train_explanatory_size[1] # 説明変数の系列数
             n_train = train_explanatory_size[0]
+            n_train_response_size = train_response_size[1] # 目的変数の系列数
 
             print("create train data")
             # 正解データを準備
             train = np.zeros((n_train, self.series_size))
-            train_labels = np.zeros(n_train)
+            train_labels = np.zeros((n_train, n_train_response_size))
             train_labels_index = np.zeros(n_train)
             for i in range(n_train):
                 train[i] = train_explanatory[i]
@@ -201,11 +206,12 @@ class data_splitter:
             test_index_size, test_explanatory_size, test_response_size = self.test.getsize()
             del(self.test)
             n_test = test_explanatory_size[0]
+            n_test_response_size = test_response_size[1] # 目的変数の系列数
 
             print("create test data")
             # テストデータを準備
             test = np.zeros((n_test, self.series_size))
-            test_labels = np.zeros(n_test)
+            test_labels = np.zeros((n_test, n_test_response_size))
             test_labels_index = np.zeros(n_test)
             for i in range(n_test):
                 test[i] = test_explanatory[i]

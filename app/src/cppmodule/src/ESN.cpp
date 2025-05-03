@@ -360,15 +360,20 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     const auto &d_buf = d.request();
     const auto &d_shape = d_buf.shape;
     const auto &d_ndim = d_buf.ndim;
-    //size_t N_d = d_shape[0];
     float *ptr_d = static_cast<float *>(d_buf.ptr);
-    auto vec_d = std::make_unique<std::vector<float>>(N, 0.0f);
-    if (d_ndim == 1 && (size_t)d_shape[0] == N) {
+    auto vec_d = std::make_unique<std::vector<std::vector<float>>>(N, std::vector<float>(N_y, 0.0));
+    if (d_ndim == 2 && (size_t)d_shape[0] == N && (size_t)d_shape[1] == N_y) {
+        std::cout << "vec_d shape: (" << d_shape[0] << ", " << d_shape[1] << ")" << std::endl;
         for (size_t i = 0; i < N; i++){
-            (*vec_d)[i] = ptr_d[i];
+            for (size_t j = 0; j < N_y; j++){
+                (*vec_d)[i][j] = ptr_d[i * N_y + j];
+            }
         }
     } else {
         std::cout << "d: shape error. ndim = " << d_ndim << ", shape[0]=" << d_shape[0] << std::endl;
+        std::cout << "d_ndim:" << d_ndim << std::endl;
+        std::cout << "d_shape[0]:" << d_shape[0] << std::endl;
+        std::cout << "d_shape[1]:" << d_shape[1] << std::endl;
     }
     std::cout << "end reading D" << std::endl;
 
@@ -429,7 +434,7 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
 
             for (size_t i = 0; i < N_y; i++){
                 for (size_t j = 0; j < N_x; j++){
-                    (*D_XT)[i][j] += (*vec_d)[n] * vec_x[j];
+                    (*D_XT)[i][j] += (*vec_d)[n][i] * vec_x[j];
                     /*
                     if(n == 4 || n == 1497){
                         file_logger->debug("D_XT[{}][{}] = {}", i, j, (*D_XT)[i][j]);
