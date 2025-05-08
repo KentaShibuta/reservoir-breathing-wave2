@@ -28,14 +28,21 @@ class ModuleType(enum.IntEnum):
     python = 1
     cpp = 2
 
-def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show = False, moduleType = ModuleType.cpp):
-    # ESNモデル
-    N_x = 500
-    n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
+class HyperParams:
+    N_x = 100
     density = 0.1
-    input_scale = 1.0
+    input_scale = 100.0
     rho = 0.9
     leaking_rate = 1.0
+
+def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show = False, moduleType = ModuleType.cpp):
+    # ESNモデル
+    n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
+    N_x = HyperParams.N_x
+    density = HyperParams.density
+    input_scale = HyperParams.input_scale
+    rho = HyperParams.rho
+    leaking_rate = HyperParams.leaking_rate
 
     if moduleType == ModuleType.cpp:
         # 学習（線形回帰）
@@ -89,12 +96,12 @@ def Predict_test(train, train_labels, train_labels_id, test, test_labels, test_l
         Wout = pickle.load(fi)
 
     # ENSモデル
-    N_x = Wout.shape[1]
     n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
-    density = 0.1
-    input_scale = 1.0
-    rho = 0.9
-    leaking_rate = 1.0
+    N_x = Wout.shape[1]
+    density = HyperParams.density
+    input_scale = HyperParams.input_scale
+    rho = HyperParams.rho
+    leaking_rate = HyperParams.leaking_rate
 
     feature = 1
     if moduleType == ModuleType.cpp:
@@ -154,11 +161,6 @@ def Predict_test(train, train_labels, train_labels_id, test, test_labels, test_l
         None
 
 def create_model(input_data, show, moduleType = ModuleType.cpp):
-    # バイナリの読み込み
-    #print(f"input file: {input_file}")
-    #bindata = self.read_binary(input_file)
-    #input_data = np.array(bindata)
-
     logger.info("[Start] Split into training and test data")
     splitter =  data_splitter(input_data, test_size=0.3, isTrain=True)
     train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch2(show=False, isTrain=True)
@@ -187,12 +189,12 @@ def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
     with open(model_file, mode='br') as fi:
         Wout = pickle.load(fi)
 
-    N_x = Wout.shape[1]
     n_step = input.shape[1] if input.ndim == 2 else input.shape[2]
-    density = 0.1
-    input_scale = 1.0
-    rho = 0.9
-    leaking_rate = 1.0
+    N_x = Wout.shape[1]
+    density = HyperParams.density
+    input_scale = HyperParams.input_scale
+    rho = HyperParams.rho
+    leaking_rate = HyperParams.leaking_rate
 
     if moduleType == ModuleType.cpp:
         # 推論
