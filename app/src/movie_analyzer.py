@@ -135,7 +135,7 @@ class MovieAnalyzer:
 
         _, breathing_wave = self.CreateBreathingWave(compression_ratio, show) if isTrain == True else (None, None)
         image_array = self.CreateColorHistogram(compression_ratio)
-        #image_array /= 255.0
+        image_array /= 255.0
         
         print(image_array.shape)
         print(image_array[0, 0].dtype)
