@@ -153,21 +153,15 @@ class data_splitter:
             print("create train data")
             # 正解データを準備
             input = np.zeros((n_input, self.window_size, self.series_size))
-            #input_labels = np.zeros(n_input)
-            #input_labels_index = np.zeros(n_input)
             for i in range(n_input):
-                #print(i)
-                response_value_index = i + (self.window_size - 1) + self.N
                 input[i] = explanatory[i:i+self.window_size]
-                #input_labels[i] = response[response_value_index]
-                #input_labels_index[i] = index[response_value_index]
             print("end create train data")
 
             del(index)
             del(explanatory)
             del(response)
 
-            return input#, input_labels, input_labels_index
+            return input
 
     def read_binary(self, filename):
         with open(filename, mode='br') as fi:

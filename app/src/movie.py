@@ -32,7 +32,7 @@ class Movie:
         print(f"total flame num: {self.totalFrameNum}")
         print(f"codec: {self.codec}")
     
-    def CreateFrames(self):
+    def CreateFrames(self, num_cut=1, save=False, binarize=False):
         ret, base = self.inputVideo.read()
 
         self.size = tuple(map(lambda x: int(x * Movie.scale), self.size))
@@ -42,8 +42,14 @@ class Movie:
         self.base = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
 
         if self.fourcc != "mp4v":
-            print("invaild codec.")
-            return
+            if self.codec == "FMP4":
+                self.fourcc = "FMP4"
+                pass
+            elif self.codec == "HEVC":
+                self.fourcc == "HEVC"
+            else:
+                print("invaild codec.")
+                return
 
         self.outputVideo = cv2.VideoWriter(self.outputPath, cv2.VideoWriter_fourcc(*self.fourcc), self.fps, self.size)
 
@@ -56,6 +62,19 @@ class Movie:
         self.inputVideo.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
         self.frames = [self.inputVideo.read() for i in range(self.totalFrameNum)]
+
+        if save == True:
+            dir_path = "/root/app/data/frames"
+            os.makedirs(dir_path, exist_ok=True)
+            if binarize == True:
+                for i in range(self.totalFrameNum):
+                    if i % num_cut == 0:
+                        img_gray = cv2.cvtColor(self.frames[i][1], cv2.COLOR_BGR2GRAY)
+                        #th = cv2.threshold(img_gray, 0, 255, cv2.THRESH_OTSU)[1]
+                        th = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 13)
+                        cv2.imwrite(f"{dir_path}/{str(i)}_bin.png", th)
+            else:
+                [cv2.imwrite(f"{dir_path}/{str(i)}.png", self.frames[i][1]) for i in range(self.totalFrameNum) if i % num_cut == 0]
 
     def Stabilize(self):
         ##############################################

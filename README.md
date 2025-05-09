@@ -87,3 +87,6 @@ This source code incorporates the following software.
 * Pillow
    * https://python-pillow.github.io/
    * [MIT-CMU License](https://github.com/python-pillow/Pillow/tree/main?tab=License-1-ov-file#readme)
+* scikit-image
+   * https://github.com/scikit-image/scikit-image
+   * [BSD-3-Clause](https://github.com/scikit-image/scikit-image?tab=License-1-ov-file)

@@ -125,7 +125,7 @@ class MovieAnalyzer:
 
         return color_array
     
-    def GetGray(self, show = False):
+    def GetGray(self, show = False, save = False, isTrain = True):
         # フレーム間差分法
         compression_ratio = 0.5
         #files = glob.glob("../data/output/frame/image_wave-*.png")
@@ -133,13 +133,19 @@ class MovieAnalyzer:
 
         image_array, breathing_wave = self.CreateBreathingWave(compression_ratio, show)
 
-        image_array = np.concatenate((image_array.reshape(image_array.shape[0], -1), breathing_wave.reshape(-1, 1)), axis=1)
-        print(image_array.shape)
+        if isTrain == True:
+            image_array = np.concatenate((image_array.reshape(image_array.shape[0], -1), breathing_wave.reshape(-1, 1)), axis=1)
+            print(image_array.shape)
+        else:
+            image_array = image_array.reshape(image_array.shape[0], -1)
+
+        if save == True:
+            now = datetime.datetime.now()
+            filename = 'data/' + now.strftime('%Y%m%d_%H%M%S') + '.pickle'
+            with open(filename, mode='wb') as fo:
+                pickle.dump(image_array, fo)
         
-        now = datetime.datetime.now()
-        filename = 'data/' + now.strftime('%Y%m%d_%H%M%S') + '.pickle'
-        with open(filename, mode='wb') as fo:
-            pickle.dump(image_array, fo)
+        return image_array
 
     def GetColor(self, show = False, save = False, isTrain = True):
         # フレーム間差分法

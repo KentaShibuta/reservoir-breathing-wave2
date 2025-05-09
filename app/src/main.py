@@ -11,6 +11,10 @@ import enum
 from scipy.signal import find_peaks
 import logging
 from logging import FileHandler
+from movie import Movie
+import frame_diff
+import argparse
+import hog
 
 np.random.seed(seed=0)
 
@@ -238,6 +242,26 @@ def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
         None
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-g', '--getimages', action='store_true')
+    parser.add_argument('-d', '--diffframe', action='store_true')
+    parser.add_argument('-o', '--hog', action='store_true')
+    args = parser.parse_args()
+
+    if args.getimages:
+        movie_file = "/root/app/data/input_video.mp4"
+        movie = Movie()
+        movie.Read(movie_file)
+        movie.CreateFrames(num_cut=30, save=True, binarize=True)
+
+        return
+    elif args.diffframe:
+        frame_diff.get_diff()
+        return
+    elif args.hog:
+        hog.get_hog()
+        return
+
     start = time.perf_counter() #計測開始
     isTrain = True
     moduleType = ModuleType.cpp
@@ -255,6 +279,7 @@ def main():
         movie_file = "/root/app/data/input_video.mp4"
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
+        #input_data = analyzer.GetGray(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
 
         # モデル評価用の推論処理を呼び出す
@@ -267,6 +292,7 @@ def main():
         movie_file = "/root/app/data/input_video.mp4"
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
+        #input_data = analyzer.GetGray(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
 
         model_file = "/root/app/model/20250405_013307.pickle"
