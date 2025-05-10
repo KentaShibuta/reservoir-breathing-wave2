@@ -33,7 +33,7 @@ class ModuleType(enum.IntEnum):
     cpp = 2
 
 class HyperParams:
-    N_x = 100
+    N_x = 500
     density = 0.1
     input_scale = 100.0
     rho = 0.9
