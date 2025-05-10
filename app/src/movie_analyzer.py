@@ -13,6 +13,8 @@ import csv
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 from PIL import Image
+import json
+import sys
 
 class Frame:
     def __init__(self, top, bottom, left, right):
@@ -27,13 +29,25 @@ class Frame:
 
 class MovieAnalyzer:
     def __init__(self, movie_file):
-        
-        self.movie = Movie()
-        self.frame = Frame(top=460, bottom=660, left=160, right=560)
-        self.movie.Read(movie_file)
-        self.movie.SplitFrame(self.frame)
+        rect_file = "/root/app/data/input_rect.json"
+        if os.path.exists(rect_file):
+            with open(rect_file) as f:
+                rect = json.load(f)
 
-        self.image = self.movie.GetImage()
+                self.movie = Movie()
+                self.frame = Frame(top=rect["y1"], bottom=rect["y2"], left=rect["x1"], right=rect["x2"])
+        else:
+            print(f"{rect_file} は存在しません。")
+            sys.exit(1)
+
+        if os.path.exists(movie_file):
+            self.movie.Read(movie_file)
+            self.movie.SplitFrame(self.frame)
+            self.image = self.movie.GetImage()
+        else:
+            print(f"{movie_file} は存在しません。")
+            sys.exit(1)
+
     
     def CreateBreathingWave(self, compression_ratio, show = False):
         print("[START] getting breathing wave")
@@ -111,7 +125,7 @@ class MovieAnalyzer:
 
         return color_array
     
-    def GetGray(self, show = False):
+    def GetGray(self, show = False, save = False, isTrain = True):
         # フレーム間差分法
         compression_ratio = 0.5
         #files = glob.glob("../data/output/frame/image_wave-*.png")
@@ -119,13 +133,19 @@ class MovieAnalyzer:
 
         image_array, breathing_wave = self.CreateBreathingWave(compression_ratio, show)
 
-        image_array = np.concatenate((image_array.reshape(image_array.shape[0], -1), breathing_wave.reshape(-1, 1)), axis=1)
-        print(image_array.shape)
+        if isTrain == True:
+            image_array = np.concatenate((image_array.reshape(image_array.shape[0], -1), breathing_wave.reshape(-1, 1)), axis=1)
+            print(image_array.shape)
+        else:
+            image_array = image_array.reshape(image_array.shape[0], -1)
+
+        if save == True:
+            now = datetime.datetime.now()
+            filename = 'data/' + now.strftime('%Y%m%d_%H%M%S') + '.pickle'
+            with open(filename, mode='wb') as fo:
+                pickle.dump(image_array, fo)
         
-        now = datetime.datetime.now()
-        filename = 'data/' + now.strftime('%Y%m%d_%H%M%S') + '.pickle'
-        with open(filename, mode='wb') as fo:
-            pickle.dump(image_array, fo)
+        return image_array
 
     def GetColor(self, show = False, save = False, isTrain = True):
         # フレーム間差分法

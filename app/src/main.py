@@ -12,6 +12,10 @@ from scipy.signal import find_peaks
 import logging
 from logging import FileHandler
 from narma import NARMA
+from movie import Movie
+import frame_diff
+import argparse
+import hog
 
 np.random.seed(seed=0)
 
@@ -29,7 +33,7 @@ class ModuleType(enum.IntEnum):
     cpp = 2
 
 class HyperParams:
-    N_x = 100
+    N_x = 500
     density = 0.1
     input_scale = 100.0
     rho = 0.9
@@ -323,6 +327,26 @@ def NARMA_TEST():
 def main():
     #NARMA_TEST()
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-g', '--getimages', action='store_true')
+    parser.add_argument('-d', '--diffframe', action='store_true')
+    parser.add_argument('-o', '--hog', action='store_true')
+    args = parser.parse_args()
+
+    if args.getimages:
+        movie_file = "/root/app/data/input_video.mp4"
+        movie = Movie()
+        movie.Read(movie_file)
+        movie.CreateFrames(num_cut=30, save=True, binarize=True)
+
+        return
+    elif args.diffframe:
+        frame_diff.get_diff()
+        return
+    elif args.hog:
+        hog.get_hog()
+        return
+
     start = time.perf_counter() #計測開始
     isTrain = True
     moduleType = ModuleType.cpp
@@ -337,9 +361,10 @@ def main():
         # train
         logger.info("[Start] Train")
         logger.info("[Start] Read data and create frame images")
-        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
+        movie_file = "/root/app/data/input_video.mp4"
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
+        #input_data = analyzer.GetGray(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
 
         # モデル評価用の推論処理を呼び出す
@@ -349,9 +374,10 @@ def main():
         # predict
         logger.info("[Start] Predict")
         logger.info("[Start] Read data and create frame images")
-        movie_file = "/root/app/data/20241227_sophie_1_stabilization.mp4"
+        movie_file = "/root/app/data/input_video.mp4"
         analyzer = MovieAnalyzer(movie_file)
         input_data = analyzer.GetColor(show=show, save=False, isTrain=isTrain)
+        #input_data = analyzer.GetGray(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
 
         model_file = "/root/app/model/20250503_084922.pickle"

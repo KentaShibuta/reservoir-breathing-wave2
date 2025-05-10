@@ -90,3 +90,15 @@ This source code incorporates the following software.
 * Pillow
    * https://python-pillow.github.io/
    * [MIT-CMU License](https://github.com/python-pillow/Pillow/tree/main?tab=License-1-ov-file#readme)
+* scikit-image
+   * https://github.com/scikit-image/scikit-image
+   * [BSD-3-Clause](https://github.com/scikit-image/scikit-image?tab=License-1-ov-file)
+* streamlit
+   * https://github.com/streamlit/streamlit/tree/develop
+   * [Apache License 2.0](https://github.com/streamlit/streamlit/tree/develop?tab=Apache-2.0-1-ov-file#readme)
+* streamlit-drawable-canvas
+   * https://github.com/andfanilo/streamlit-drawable-canvas
+   * [MIT License](https://github.com/andfanilo/streamlit-drawable-canvas?tab=MIT-1-ov-file#readme)
+* streamlit-image-coordinates
+   * https://github.com/blackary/streamlit-image-coordinates/
+   * [MIT License](https://github.com/blackary/streamlit-image-coordinates/?tab=MIT-1-ov-file#readme)
