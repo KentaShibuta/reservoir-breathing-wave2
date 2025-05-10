@@ -11,6 +11,7 @@ import enum
 from scipy.signal import find_peaks
 import logging
 from logging import FileHandler
+from narma import NARMA
 from movie import Movie
 import frame_diff
 import argparse
@@ -31,14 +32,21 @@ class ModuleType(enum.IntEnum):
     python = 1
     cpp = 2
 
-def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show = False, moduleType = ModuleType.cpp):
-    # ESNモデル
-    N_x = 500
-    n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
+class HyperParams:
+    N_x = 100
     density = 0.1
-    input_scale = 1.0
+    input_scale = 100.0
     rho = 0.9
     leaking_rate = 1.0
+
+def Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show = False, moduleType = ModuleType.cpp):
+    # ESNモデル
+    n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
+    N_x = HyperParams.N_x
+    density = HyperParams.density
+    input_scale = HyperParams.input_scale
+    rho = HyperParams.rho
+    leaking_rate = HyperParams.leaking_rate
 
     if moduleType == ModuleType.cpp:
         # 学習（線形回帰）
@@ -92,12 +100,12 @@ def Predict_test(train, train_labels, train_labels_id, test, test_labels, test_l
         Wout = pickle.load(fi)
 
     # ENSモデル
-    N_x = Wout.shape[1]
     n_step = train.shape[1] if train.ndim == 2 else train.shape[2]
-    density = 0.1
-    input_scale = 1.0
-    rho = 0.9
-    leaking_rate = 1.0
+    N_x = Wout.shape[1]
+    density = HyperParams.density
+    input_scale = HyperParams.input_scale
+    rho = HyperParams.rho
+    leaking_rate = HyperParams.leaking_rate
 
     feature = 1
     if moduleType == ModuleType.cpp:
@@ -157,14 +165,9 @@ def Predict_test(train, train_labels, train_labels_id, test, test_labels, test_l
         None
 
 def create_model(input_data, show, moduleType = ModuleType.cpp):
-    # バイナリの読み込み
-    #print(f"input file: {input_file}")
-    #bindata = self.read_binary(input_file)
-    #input_data = np.array(bindata)
-
     logger.info("[Start] Split into training and test data")
     splitter =  data_splitter(input_data, test_size=0.3, isTrain=True)
-    train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch(show=False, isTrain=True)
+    train, train_labels, train_labels_id, test, test_labels, test_labels_id = splitter.create_batch2(show=False, isTrain=True)
     logger.info("[Finish] Split into training and test data")
 
     model_file = Train(train, train_labels, train_labels_id, test, test_labels, test_labels_id, show, moduleType=moduleType)
@@ -176,26 +179,30 @@ def create_model(input_data, show, moduleType = ModuleType.cpp):
 
 def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
     splitter =  data_splitter(input_data, test_size=0, isTrain=False)
-    input = splitter.create_batch(show=False, isTrain=False)
-    print("python N: " + str(input.shape[0]))
-    print("python N_window: " + str(input.shape[1]))
-    print("python N_u: " + str(input.shape[2]))
+    input = splitter.create_batch2(show=False, isTrain=False)
+    if input_data.ndim == 3:
+        print("python N: " + str(input.shape[0]))
+        print("python N_window: " + str(input.shape[1]))
+        print("python N_u: " + str(input.shape[2]))
+    else:
+        print("python N: " + str(input.shape[0]))
+        print("python N_u: " + str(input.shape[1]))
     feature = 1# 入力データの時間幅の何倍の時間幅を予測するか
 
     ### pickleで保存したファイルを読み込み
     with open(model_file, mode='br') as fi:
         Wout = pickle.load(fi)
 
-    N_x = Wout.shape[1]
     n_step = input.shape[1] if input.ndim == 2 else input.shape[2]
-    density = 0.1
-    input_scale = 1.0
-    rho = 0.9
-    leaking_rate = 1.0
+    N_x = Wout.shape[1]
+    density = HyperParams.density
+    input_scale = HyperParams.input_scale
+    rho = HyperParams.rho
+    leaking_rate = HyperParams.leaking_rate
 
     if moduleType == ModuleType.cpp:
         # 推論
-        esn_cpp = ESNCpp(input.shape[2], Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
+        esn_cpp = ESNCpp(n_step, Wout.shape[0], Wout.shape[1], density, input_scale, rho, leaking_rate)
         logger.info("[Start] esn_cpp.SetWout")
         esn_cpp.SetWout(Wout)
         logger.info("[Finish] esn_cpp.SetWout")
@@ -241,7 +248,85 @@ def Predict(input_data, model_file, show, moduleType = ModuleType.cpp):
     else:
         None
 
+def NARMA_TEST():
+    # データ長
+    T = 900  # 訓練用
+    T_test = 100  # 検証用
+
+    order = 10  # NARMAモデルの次数
+    dynamics = NARMA(order, a1=0.3, a2=0.05, a3=1.5, a4=0.1)
+    y_init = [0] * order
+    u, d = dynamics.generate_data(T + T_test, y_init)
+
+    # 学習・テスト用情報
+    train_U = u[:T].reshape(-1, 1)
+    train_D = d[:T].reshape(-1, 1)
+    test_U = u[T:].reshape(-1, 1)
+    test_D = d[T:].reshape(-1, 1)
+
+    # ESNモデル
+    N_x = 50
+    n_step = train_U.shape[1]
+    n_y = train_D.shape[1]
+    density = 0.15
+    input_scale = 0.1
+    rho = 0.9
+    leaking_rate = 1.0
+
+    esn_cpp = ESNCpp(1, 1, N_x, density, input_scale, rho, leaking_rate)
+    #model = ESN(n_step, n_y, N_x,
+    #            density=density, input_scale=input_scale, rho=rho)#,
+                #fb_scale=0.1, fb_seed=0)
+
+    # 学習（リッジ回帰）
+    train_Y = esn_cpp.Train(train_U, train_D)
+    #train_Y = model.train(train_U, train_D,
+    #                      Tikhonov(N_x, train_D.shape[1], 1e-4))
+
+    # モデル出力
+    test_Y = esn_cpp.Predict(test_U)
+    #test_Y = model.predict(test_U)
+
+    # 評価（テスト誤差RMSE, NRMSE）
+    RMSE = np.sqrt(((test_D - test_Y) ** 2).mean())
+    NRMSE = RMSE/np.sqrt(np.var(test_D))
+    print('RMSE =', RMSE)
+    print('NRMSE =', NRMSE)
+
+    # グラフ表示用データ
+    T_disp = (-100, 100)
+    t_axis = np.arange(T_disp[0], T_disp[1])
+    disp_U = np.concatenate((train_U[T_disp[0]:], test_U[:T_disp[1]]))
+    disp_D = np.concatenate((train_D[T_disp[0]:], test_D[:T_disp[1]]))
+    disp_Y = np.concatenate((train_Y[T_disp[0]:], test_Y[:T_disp[1]]))
+
+    # グラフ表示
+    plt.rcParams['font.size'] = 12
+    fig = plt.figure(figsize=(7, 5))
+    plt.subplots_adjust(hspace=0.3)
+
+    ax1 = fig.add_subplot(2, 1, 1)
+    ax1.text(-0.15, 1, '(a)', transform=ax1.transAxes)
+    ax1.text(0.2, 1.05, 'Training', transform=ax1.transAxes)
+    ax1.text(0.7, 1.05, 'Testing', transform=ax1.transAxes)
+    plt.plot(t_axis, disp_U[:,0], color='k')
+    plt.ylabel('Input')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    ax2 = fig.add_subplot(2, 1, 2)
+    ax2.text(-0.15, 1, '(b)', transform=ax2.transAxes)
+    plt.plot(t_axis, disp_D[:,0], color='k', label='Target')
+    plt.plot(t_axis, disp_Y[:,0], color='gray', linestyle='--', label='Model')
+    plt.xlabel('n')
+    plt.ylabel('Output')
+    plt.legend(bbox_to_anchor=(1, 1), loc='upper right')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    plt.show()
+
 def main():
+    #NARMA_TEST()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-g', '--getimages', action='store_true')
     parser.add_argument('-d', '--diffframe', action='store_true')
@@ -295,13 +380,12 @@ def main():
         #input_data = analyzer.GetGray(show=show, save=False, isTrain=isTrain)
         logger.info("[Finish] Read data and create frame images")
 
-        model_file = "/root/app/model/20250405_013307.pickle"
+        model_file = "/root/app/model/20250503_084922.pickle"
         Predict(input_data, model_file, show=show, moduleType=moduleType)
         logger.info("[Finish] Predict")
 
     end = time.perf_counter() #計測終了
     print('{:.2f}'.format((end-start)/60))
-
 
 if __name__ == '__main__':
     main()

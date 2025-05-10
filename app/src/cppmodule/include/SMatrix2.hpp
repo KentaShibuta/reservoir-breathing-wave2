@@ -34,8 +34,10 @@ class SMatrix2{
                 }
             }
         };
+#ifdef USE_PYBIND
         template <typename T>
         std::unique_ptr<std::vector<std::vector<T>>> generate_uniform_random(std::size_t row_size, std::size_t col_size, T scale);
+#endif
         template <typename T>
         std::unique_ptr<std::vector<std::vector<T>>> generate_normal_distribution(std::size_t row_size, std::size_t col_size, T mean, T stddev);
         template <typename MatrixType, typename T>

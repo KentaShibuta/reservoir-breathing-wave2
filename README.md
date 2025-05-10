@@ -60,6 +60,9 @@ This source code incorporates the following software.
 * spdlog
    * https://github.com/gabime/spdlog
    * [MIT License](https://github.com/gabime/spdlog?tab=License-1-ov-file#readme)
+* matplotlib-cpp
+   * https://github.com/lava/matplotlib-cpp
+   * [MIT License](https://github.com/lava/matplotlib-cpp/blob/master/LICENSE)
 * NumPy
    * https://numpy.org/
    * [BSD-3-Clause license](https://numpy.org/doc/stable/license.html)

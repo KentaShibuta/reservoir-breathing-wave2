@@ -17,6 +17,7 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
     }
 }
 
+#ifdef USE_PYBIND
 ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate){
     m_matlib = SMatrix2();
     N_u = n_u;
@@ -36,6 +37,7 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     vec_x = *x_ptr;
     a_alpha = leaking_rate;
 }
+#endif
 
 ESN::ESN(){
     m_matlib = SMatrix2();
@@ -48,6 +50,7 @@ ESN::ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py
     const auto &u_shape = u_buf.shape;
     const auto &u_ndim = u_buf.ndim;
     N = u_shape[0];
+    /*
     N_window = u_shape[1];
     N_u = u_shape[2];
     float *ptr_u = static_cast<float *>(u_buf.ptr);
@@ -63,7 +66,21 @@ ESN::ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py
     } else {
         std::cout << "u: shape error. ndim = " << u_ndim << std::endl;
     }
-    
+    */
+
+    //N_u = u_shape[1];
+    float *ptr_u = static_cast<float *>(u_buf.ptr);
+    vec_u.resize(N, std::vector<float>(N_u));
+    if (u_ndim == 2) {
+        for (size_t i = 0; i < N; i++){
+            for (size_t j = 0; j < N_u; j++){
+                vec_u[i][j] = ptr_u[i * N_u + j];
+            }
+        }
+    } else {
+        std::cout << "u: shape error. ndim = " << u_ndim << ", shape[0]=" << u_shape[0] << ", shape[1]=" << u_shape[1] << std::endl;
+    }
+
     const auto &w_in_buf = w_in.request();
     const auto &w_in_shape = w_in_buf.shape;
     const auto &w_in_ndim = w_in_buf.ndim;
@@ -132,6 +149,7 @@ void ESN::Print(){
     // print
     // vec_u
     std::cout << "vec_u" << std::endl;
+    /*
     for (size_t i = 0; i < N; i++){
         std::cout << "i = " << i << std::endl;
         for (size_t j = 0; j < N_window; j++)
@@ -141,6 +159,15 @@ void ESN::Print(){
                 std::cout << vec_u[i][j][k] << " ";
             }
             std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+    */
+    for (size_t i = 0; i < N; i++){
+        std::cout << "i = " << i << std::endl;
+        for (size_t k = 0; k < N_u; k++)
+        {
+            std::cout << vec_u[i][k] << " ";
         }
         std::cout << std::endl;
     }
@@ -199,6 +226,7 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     const auto &u_shape = u_buf.shape;
     const auto &u_ndim = u_buf.ndim;
     N = u_shape[0];
+    /*
     N_window = u_shape[1];
     float *ptr_u = static_cast<float *>(u_buf.ptr);
     vec_u.resize(N, std::vector<std::vector<float>>(N_window, std::vector<float>(N_u)));
@@ -213,6 +241,20 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     } else {
         std::cout << "u: shape error. ndim = " << u_ndim << std::endl;
     }
+    */
+
+    //N_u = u_shape[1];
+    float *ptr_u = static_cast<float *>(u_buf.ptr);
+    vec_u.resize(N, std::vector<float>(N_u));
+    if (u_ndim == 2) {
+        for (size_t i = 0; i < N; i++){
+            for (size_t j = 0; j < N_u; j++){
+                vec_u[i][j] = ptr_u[i * N_u + j];
+            }
+        }
+    } else {
+        std::cout << "u: shape error. ndim = " << u_ndim << ", shape[0]=" << u_shape[0] << ", shape[1]=" << u_shape[1] << std::endl;
+    }
 
     std::cout << "N_x: " << N_x << std::endl;
     std::cout << "N_u: " << N_u << std::endl;
@@ -224,6 +266,8 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     std::cout << "Running Predict" << std::endl;
     size_t n = 0;
     for (const auto& input : vec_u){
+
+        /*
         size_t step = 0;
         for (const auto& input_step : input){
             auto x_in = m_matlib.dot(vec_w_in, input_step);
@@ -235,6 +279,15 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
             }
 
             step++;
+        }
+        */
+
+        auto x_in = m_matlib.dot(vec_w_in, input);
+        auto w_dot_x = m_matlib.dot(vec_w, vec_x);
+
+        // リザバー状態ベクトルの更新
+        for (size_t i = 0; i < N_x; i++){
+            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]);
         }
 
         auto y_pred = m_matlib.dot(vec_w_out, vec_x);
@@ -265,6 +318,8 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     const auto &u_shape = u_buf.shape;
     const auto &u_ndim = u_buf.ndim;
     N = u_shape[0];
+
+    /*
     N_window = u_shape[1];
     //N_u = u_shape[2];
     float *ptr_u = static_cast<float *>(u_buf.ptr);
@@ -280,6 +335,24 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     } else {
         std::cout << "u: shape error. ndim = " << u_ndim << std::endl;
     }
+    */
+
+    N_u = u_shape[1];
+    std::cout << "N: " << N << std::endl;
+    std::cout << "N_u: " << N_u << std::endl;
+    float *ptr_u = static_cast<float *>(u_buf.ptr);
+    vec_u.resize(N, std::vector<float>(N_u));
+    std::cout << "vec_u shape = (" << vec_u.size() << ", " << vec_u[0].size() << ")"  << std::endl;
+    if (u_ndim == 2) {
+        for (size_t i = 0; i < N; i++){
+            for (size_t j = 0; j < N_u; j++){
+                vec_u[i][j] = ptr_u[i * N_u + j];
+            }
+        }
+    } else {
+        std::cout << "u: shape error. ndim = " << u_ndim << ", shape[0]=" << u_shape[0] << ", shape[1]=" << u_shape[1] << std::endl;
+    }
+
     std::cout << "end reading U" << std::endl;
 
     // read d
@@ -287,20 +360,25 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     const auto &d_buf = d.request();
     const auto &d_shape = d_buf.shape;
     const auto &d_ndim = d_buf.ndim;
-    //size_t N_d = d_shape[0];
     float *ptr_d = static_cast<float *>(d_buf.ptr);
-    auto vec_d = std::make_unique<std::vector<float>>(N, 0.0f);
-    if (d_ndim == 1 && (size_t)d_shape[0] == N) {
+    auto vec_d = std::make_unique<std::vector<std::vector<float>>>(N, std::vector<float>(N_y, 0.0));
+    if (d_ndim == 2 && (size_t)d_shape[0] == N && (size_t)d_shape[1] == N_y) {
+        std::cout << "vec_d shape: (" << d_shape[0] << ", " << d_shape[1] << ")" << std::endl;
         for (size_t i = 0; i < N; i++){
-            (*vec_d)[i] = ptr_d[i];
+            for (size_t j = 0; j < N_y; j++){
+                (*vec_d)[i][j] = ptr_d[i * N_y + j];
+            }
         }
     } else {
         std::cout << "d: shape error. ndim = " << d_ndim << ", shape[0]=" << d_shape[0] << std::endl;
+        std::cout << "d_ndim:" << d_ndim << std::endl;
+        std::cout << "d_shape[0]:" << d_shape[0] << std::endl;
+        std::cout << "d_shape[1]:" << d_shape[1] << std::endl;
     }
     std::cout << "end reading D" << std::endl;
 
     //auto y = std::make_unique<std::vector<float>>(N, 0.0f);
-    py::array_t<float> y(N);
+    py::array_t<float> y({N, N_y});
 
     // 時間発展
     std::cout << "Running Train" << std::endl;
@@ -310,9 +388,11 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     auto X_XT = std::make_unique<std::vector<std::vector<double>>>(N_x, std::vector<double>(N_x, 0.0));
     auto D_XT = std::make_unique<std::vector<std::vector<double>>>(N_y, std::vector<double>(N_x, 0.0));
 
+    //std::cout << "vec_u_type: " << typeid(vec_u).name() << std::endl;
     for (const auto& input : vec_u){
-        size_t step = 0;
+        //size_t step = 0;
 
+        /*
         for (const auto& input_step : input){;
             auto x_in = m_matlib.dot(vec_w_in, input_step);
             auto w_dot_x = m_matlib.dot(vec_w, vec_x);
@@ -324,6 +404,19 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
 
             step++;
         }
+        */
+
+        //std::cout << "input_type: " << typeid(input).name() << std::endl;
+        //std::cout << "input_size: " << input.size() << std::endl;
+
+        auto x_in = m_matlib.dot(vec_w_in, input);
+        auto w_dot_x = m_matlib.dot(vec_w, vec_x);
+
+        // リザバー状態ベクトルの更新
+        for (size_t i = 0; i < N_x; i++){
+            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]);
+            file_logger->debug("vec_x[{}] = {}", i, vec_x[i]);
+        }
 
         // 学習器
         if (n > 0){
@@ -331,20 +424,29 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
             for (size_t i = 0; i < N_x; i++){
                 for (size_t j = 0; j < N_x; j++){
                     (*X_XT)[i][j] += static_cast<double>(vec_x[i] * vec_x[j]);
+                    /*
                     if(n == 4 || n == 1497){
                         file_logger->debug("X_XT[{}][{}] = {}", i, j, (*X_XT)[i][j]);
                     }
+                    */
                 }
             }
 
             for (size_t i = 0; i < N_y; i++){
                 for (size_t j = 0; j < N_x; j++){
-                    (*D_XT)[i][j] += (*vec_d)[n] * vec_x[j];
+                    (*D_XT)[i][j] += (*vec_d)[n][i] * vec_x[j];
+                    /*
                     if(n == 4 || n == 1497){
                         file_logger->debug("D_XT[{}][{}] = {}", i, j, (*D_XT)[i][j]);
                     }
+                    */
                 }
             }
+        }
+
+        auto y_pred = m_matlib.dot(vec_w_out, vec_x);
+        for (size_t j = 0; j < N_y; j++){
+            *y.mutable_data(n, j) = (*y_pred)[j];
         }
 
         n++;
@@ -355,6 +457,7 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     // X_XTの疑似逆行列を求める
     auto inv_X_XT = m_matlib.GetInversePy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT);
 
+    /*
     size_t inv_i = 0;
     for (auto& row : *inv_X_XT){
         size_t inv_j = 0;
@@ -364,13 +467,15 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
         }
         inv_i++;
     }
+    */
 
     // D_XTとX_XTの疑似逆行列の積を計算してWoutを求める
     auto mul = m_matlib.matMul(*D_XT, *inv_X_XT);
 
     std::cout << "cpp Wout" << std::endl;
     for (size_t i = 0; i < N_x; i++){
-        std::cout << (*mul)[0][i] << " ";
+        //std::cout << (*mul)[0][i] << " ";
+        file_logger->debug("mul[0][{}] = {}", i, (*mul)[0][i]);
     }
     std::cout << std::endl;
 
@@ -471,6 +576,7 @@ py::array_t<float> ESN::GetWout(){
 }
 #endif
 
+#ifdef USE_PYBIND
 template <typename MatrixType, typename VectorType, typename T>
 std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x, T density, T rho) {
     auto connection_matrix = std::make_unique<std::vector<std::vector<T>>>(N_x, std::vector<T>(N_x));
@@ -512,6 +618,7 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
 
     return connection_matrix;
 }
+#endif
 
 #ifdef USE_PYBIND
 py::tuple ESN::GetInversePy2 (py::array_t<double> mat){
@@ -576,6 +683,7 @@ TEST_CASE("[test] matrix mul") {
     std::cout << "[PASS] matrix mul" << std::endl;
 }
 
+/*
 TEST_CASE("[test] create init matrix") {
     std::cout << "[START] create init matrix" << std::endl;
     SMatrix2 matlib = SMatrix2();
@@ -629,31 +737,16 @@ TEST_CASE("[test] create init matrix") {
     std::cout << "[result] w" << std::endl;
     std::cout << "row_size: " << (*w).size() << std::endl;
     std::cout << "col_size: " << (*w)[0].size() << std::endl;
-    /*
-    for (const auto &row : *w){
-        for (const auto &elem : row){
-            std::cout << elem << " ";
-        }
-        std::cout << std::endl;
-    }
-    */
 
     std::cout << std::endl;
 
     std::cout << "[result] w_out" << std::endl;
     std::cout << "row_size: " << (*w_out).size() << std::endl;
     std::cout << "col_size: " << (*w_out)[0].size() << std::endl;
-    /*
-    for (const auto &row : *w_out){
-        for (const auto &elem : row){
-            std::cout << elem << " ";
-        }
-        std::cout << std::endl;
-    }
-    */
 
     std::cout << "[PASS] create init matrix" << std::endl;
 }
+*/
 
 TEST_CASE("[test] inv matrix") {
     std::cout << "[START] inv matrix" << std::endl;
@@ -701,8 +794,8 @@ TEST_CASE("[test] SMatrix2") {
     ///////////////
     size_t row_size = 10;
     size_t col_size = 10;
-    double scale_d = 1.0;
-    float scale_f = 1.0f;
+    //double scale_d = 1.0;
+    //float scale_f = 1.0f;
     double mean_d = 0.0;
     float mean_f = 0.0f;
     double stddev_d = 1.0;
@@ -736,6 +829,16 @@ TEST_CASE("[test] SMatrix2") {
     std::vector<double> vec_d = {1.0, -2.0, 3.0};
     std::vector<float> vec_f = {1.0f, -2.0f, 3.0f};
 
+    std::vector<std::vector<float>> A_one = {
+        {1.0},
+        {4.0},
+        {7.0}
+    };
+
+    std::vector<float> vec_one = {2.0f};
+
+
+    /*
     std::cout << "generate_uniform_random" << std::endl;
     auto uniform_rand_mat_d = matlib2.generate_uniform_random(row_size, col_size, scale_d);
     std::cout << typeid((*uniform_rand_mat_d)[0][0]).name() << std::endl;
@@ -743,6 +846,7 @@ TEST_CASE("[test] SMatrix2") {
     auto uniform_rand_mat_f = matlib2.generate_uniform_random(row_size, col_size, scale_f);
     std::cout << typeid((*uniform_rand_mat_f)[0][0]).name() << std::endl;
     CHECK(std::string(typeid((*uniform_rand_mat_f)[0][0]).name()) == "f");
+    */
 
     std::cout << "generate_normal_distribution" << std::endl;
     auto normal_rand_mat_d = matlib2.generate_normal_distribution(row_size, col_size, mean_d, stddev_d);
@@ -783,6 +887,13 @@ TEST_CASE("[test] SMatrix2") {
     auto dot_f = matlib2.dot(A_f, vec_f);
     std::cout << typeid((*dot_f)[0]).name() << std::endl;
     CHECK(std::string(typeid((*dot_f)[0]).name()) == "f");
+
+    std::cout << "Matrix(NxOne) dot Vector(OnexOne)" << std::endl;
+    auto dot_one = matlib2.dot(A_one, vec_one);
+    std::cout << "A_one shape: " << A_one.size() << ", " << A_one[0].size() << std::endl;
+    std::cout << "A_one * vec_one shape: " << (*dot_d).size() << std::endl;
+    CHECK(dot_one != nullptr);
+    CHECK((*dot_one).size() == A_one.size());
 
     std::cout << "matMul" << std::endl;
     auto matMul_d = matlib2.matMul(A_d, B_d);
