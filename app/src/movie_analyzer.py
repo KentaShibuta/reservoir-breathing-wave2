@@ -42,7 +42,8 @@ class MovieAnalyzer:
 
         if os.path.exists(movie_file):
             self.movie.Read(movie_file)
-            self.movie.SplitFrame(self.frame)
+            self.movie.SplitFrame(self.frame)                                     # 全フレームを計算で使う場合
+            #self.movie.SplitFrame(self.frame, trimFramNum=True, maxFramNum=1800) # 1800フレームしか使わない場合(30fpsで60秒間)
             self.image = self.movie.GetImage()
         else:
             print(f"{movie_file} は存在しません。")
@@ -89,7 +90,13 @@ class MovieAnalyzer:
         print("[END] getting breathing wave")
 
         if show == True:
+            # グラフのx軸を
             x = range(len(th))
+
+            # グラフのx軸を秒にする場合を下記を使う
+            #fps = self.movie.GetFPS()
+            #x = np.arange(0, len(th))/fps
+
             plt.plot(x, breathing_wave)
 
             plt.xlabel("time step")
