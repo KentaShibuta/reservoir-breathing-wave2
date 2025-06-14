@@ -1,0 +1,35 @@
+3rdparty/ippiw/CMakeFiles/ippiw.dir/src/iw_image_transform_resize.c.o: \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/src/iw_image_transform_resize.c \
+ /usr/include/stdc-predef.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw/iw_image_transform.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw/iw_image.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw/iw_core.h \
+ /usr/lib/gcc/x86_64-linux-gnu/12/include/stddef.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv_l.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv_defs_l.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv_defs.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv_base.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv_types.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv_types_l.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippicv_redefs.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippversion.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw/iw_version.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/icv/include/ippversion.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw_owni.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw_own.h \
+ /usr/include/string.h \
+ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+ /usr/include/features.h /usr/include/features-time64.h \
+ /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+ /usr/include/x86_64-linux-gnu/bits/timesize.h \
+ /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+ /usr/include/x86_64-linux-gnu/bits/long-double.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+ /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/strings.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw_config.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw/iw_core.h \
+ /root/app/lib/opencv-4.x/build/3rdparty/ippicv/ippicv_lnx/iw/include/iw/iw_image.h

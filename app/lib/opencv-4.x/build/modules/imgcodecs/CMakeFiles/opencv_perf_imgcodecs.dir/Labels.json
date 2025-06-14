@@ -1,0 +1,60 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/root/app/lib/opencv-4.x/include/modules/imgcodecs/perf/perf_decode_encode.cpp",
+			"labels" : 
+			[
+				"Main",
+				"opencv_imgcodecs",
+				"PerfTest"
+			]
+		},
+		{
+			"file" : "/root/app/lib/opencv-4.x/include/modules/imgcodecs/perf/perf_jpeg.cpp",
+			"labels" : 
+			[
+				"Main",
+				"opencv_imgcodecs",
+				"PerfTest"
+			]
+		},
+		{
+			"file" : "/root/app/lib/opencv-4.x/include/modules/imgcodecs/perf/perf_main.cpp",
+			"labels" : 
+			[
+				"Main",
+				"opencv_imgcodecs",
+				"PerfTest"
+			]
+		},
+		{
+			"file" : "/root/app/lib/opencv-4.x/include/modules/imgcodecs/perf/perf_png.cpp",
+			"labels" : 
+			[
+				"Main",
+				"opencv_imgcodecs",
+				"PerfTest"
+			]
+		},
+		{
+			"file" : "/root/app/lib/opencv-4.x/include/modules/imgcodecs/perf/perf_precomp.hpp",
+			"labels" : 
+			[
+				"Main",
+				"opencv_imgcodecs",
+				"PerfTest"
+			]
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"Main",
+			"opencv_imgcodecs",
+			"PerfTest"
+		],
+		"name" : "opencv_perf_imgcodecs"
+	}
+}
