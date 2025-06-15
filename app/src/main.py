@@ -12,6 +12,7 @@ from scipy.signal import find_peaks
 import logging
 from logging import FileHandler
 from narma import NARMA
+from sinsaw import SINSAW
 from movie import Movie
 import frame_diff
 import argparse
@@ -324,8 +325,95 @@ def NARMA_TEST():
 
     plt.show()
 
+def WAVE_CLASSIFICATION_TEST():
+    # 訓練データ，検証データの数
+    n_wave_train = 60
+    n_wave_test = 40
+
+    # 時系列入力データ生成
+    period = 50
+    dynamics = SINSAW(period)
+    label = np.random.choice(2, n_wave_train+n_wave_test)
+    u, d = dynamics.generate_data(label)
+    T = period*n_wave_train
+
+    # 訓練・検証用情報
+    train_U = u[:T].reshape(-1, 1)
+    train_D = d[:T]
+
+    test_U = u[T:].reshape(-1, 1)
+    test_D = d[T:]
+
+    # ESNモデル
+    N_x = 50  # リザバーのノード数
+    model = ESNCpp(train_U.shape[1], train_D.shape[1], N_x, density=0.1,
+                     input_scale=0.2, rho=0.9,
+                     classification=True, average_window=period,
+                     y_scale=0.5, y_shift=0.5)
+
+    # 学習（リッジ回帰）
+    train_Y = model.Train(train_U, train_D)
+
+    # 訓練データに対するモデル出力
+    test_Y = model.Predict(test_U)
+
+    # 評価（正解率, accracy）
+    mode = np.empty(0, np.int32)
+    for i in range(n_wave_test):
+        tmp = test_Y[period*i:period*(i+1), :]  # 各ブロックの出力
+        max_index = np.argmax(tmp, axis=1)  # 最大値をとるインデックス
+        histogram = np.bincount(max_index)  # そのインデックスのヒストグラム
+        mode = np.hstack((mode, np.argmax(histogram)))  #  最頻値
+
+    target = test_D[0:period*n_wave_test:period,1]
+    accuracy = 1-np.linalg.norm(mode.astype(np.float32)-target, 1)/n_wave_test
+    print('accuracy =', accuracy)
+
+    # グラフ表示用データ
+    T_disp = (-500, 500)
+    t_axis = np.arange(T_disp[0], T_disp[1])  # 時間軸
+    disp_U = np.concatenate((train_U[T_disp[0]:], test_U[:T_disp[1]]))
+    disp_D = np.concatenate((train_D[T_disp[0]:], test_D[:T_disp[1]]))
+    disp_Y = np.concatenate((train_Y[T_disp[0]:], test_Y[:T_disp[1]]))
+
+    # グラフ表示
+    plt.rcParams['font.size'] = 12
+    fig = plt.figure(figsize=(7, 7))
+    plt.subplots_adjust(hspace=0.3)
+
+    ax1 = fig.add_subplot(3, 1, 1)
+    ax1.text(-0.1, 1, '(a)', transform=ax1.transAxes)
+    ax1.text(0.2, 1.05, 'Training', transform=ax1.transAxes)
+    ax1.text(0.7, 1.05, 'Testing', transform=ax1.transAxes)
+    plt.plot(t_axis, disp_U[:,0], color='k')
+    plt.ylabel('Input')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    ax2 = fig.add_subplot(3, 1, 2)
+    ax2.text(-0.1, 1, '(b)', transform=ax2.transAxes)
+    plt.plot(t_axis, disp_D[:,0], color='k', linestyle='-', label='Target')
+    plt.plot(t_axis, disp_Y[:,0], color='gray', linestyle='--', label='Model')
+    plt.plot([-500, 500], [0.5, 0.5], color='k', linestyle = ':')
+    plt.ylim([-0.3, 1.3])
+    plt.ylabel('Output 1')
+    plt.legend(bbox_to_anchor=(0, 0), loc='lower left')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    ax3 = fig.add_subplot(3, 1, 3)
+    plt.plot(t_axis, disp_D[:, 1], color='k', linestyle='-', label='Target')
+    plt.plot(t_axis, disp_Y[:, 1], color='gray', linestyle='--', label='Model')
+    plt.plot([-500, 500], [0.5, 0.5], color='k', linestyle = ':')
+    plt.ylim([-0.3, 1.3])
+    plt.xlabel('n')
+    plt.ylabel('Output 2')
+    plt.legend(bbox_to_anchor=(0, 0), loc='lower left')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    plt.show()
+
 def main():
     #NARMA_TEST()
+    #WAVE_CLASSIFICATION_TEST()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-g', '--getimages', action='store_true')

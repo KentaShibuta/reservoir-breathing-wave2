@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <deque>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -23,6 +24,12 @@ namespace py = pybind11;
 class ESN{
     private:
         SMatrix2 m_matlib;
+        std::deque<std::vector<float>> vec_window;              // 分類時に時間平均をとるためのデータ格納場所
+        bool m_classification;                                  // 扱う問題を分類タスクにするか？
+        size_t m_average_window;                                // ウィンドウサイズ
+        float m_y_scale;                                        // yのスケール
+        float m_y_inv_scale;                                    // yのスケールの逆数
+        float m_y_shift;                                        // yのシフト
         void set_Wout (const std::vector<std::vector<double>>& mat);
     
     public:
@@ -40,7 +47,7 @@ class ESN{
 
         ESN();
 #ifdef USE_PYBIND
-        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate);
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate=1.0f, bool classification=false, size_t average_window=0, float y_scale=1.0f, float y_shift=0.0f);
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha);
 #endif
 

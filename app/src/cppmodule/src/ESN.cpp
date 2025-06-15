@@ -18,7 +18,7 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
 }
 
 #ifdef USE_PYBIND
-ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate){
+ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, bool classification, size_t average_window, float y_scale, float y_shift){
     m_matlib = SMatrix2();
     N_u = n_u;
     std::cout << "init N_u: " << N_u << std::endl;
@@ -30,12 +30,19 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     auto mat_w_out = m_matlib.generate_normal_distribution(N_y, N_x, 0.0f, 1.0f);
 
     auto x_ptr = std::make_unique<std::vector<float>>(N_x, 0.0f);
+    auto mat_window = std::make_unique<std::deque<std::vector<float>>>(average_window, std::vector<float>(N_x, 0.0f));
 
-    vec_w_in = *mat_w_in;
-    vec_w = *mat_w;
-    vec_w_out = *mat_w_out;
-    vec_x = *x_ptr;
+    vec_w_in = std::move(*mat_w_in);
+    vec_w = std::move(*mat_w);
+    vec_w_out = std::move(*mat_w_out);
+    vec_x = std::move(*x_ptr);
+    vec_window = std::move(*mat_window);
     a_alpha = leaking_rate;
+    m_classification = classification;
+    m_average_window = average_window;
+    m_y_scale = y_scale;
+    m_y_inv_scale = 1.0f / y_scale;
+    m_y_shift = y_shift;
 }
 #endif
 
@@ -290,9 +297,32 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
             vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]);
         }
 
+        if (m_classification && m_average_window > 0){
+            vec_window.pop_front();
+            vec_window.push_back(vec_x);
+
+            // xを初期化
+            for (size_t i = 0; i < N_x; i++){
+                vec_x[i] = 0.0f;
+            }
+
+            // 列ごとに平均をとってxに代入する
+            for (size_t w = 0; w < m_average_window; w++){
+                for (size_t i = 0; i < N_x; i++){
+                    vec_x[i] += vec_window[w][i];
+
+                    // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
+                    if (w == m_average_window - 1){
+                        vec_x[i] /= (1.0f * m_average_window);
+                    }
+                }
+            }
+        }
+
         auto y_pred = m_matlib.dot(vec_w_out, vec_x);
         for (size_t j = 0; j < N_y; j++){
-            *y.mutable_data(n, j) = (*y_pred)[j];
+            // yの値をスケール変換する e.g. -1～1の値を0～1へ変換する
+            *y.mutable_data(n, j) = m_y_scale * (*y_pred)[j] + m_y_shift;
         }
 
         n++;
@@ -366,7 +396,8 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
         std::cout << "vec_d shape: (" << d_shape[0] << ", " << d_shape[1] << ")" << std::endl;
         for (size_t i = 0; i < N; i++){
             for (size_t j = 0; j < N_y; j++){
-                (*vec_d)[i][j] = ptr_d[i * N_y + j];
+                // yの値をスケール逆変換する e.g. 0～1の値を-1～1へ変換する
+                (*vec_d)[i][j] = m_y_inv_scale * (ptr_d[i * N_y + j] - m_y_shift);
             }
         }
     } else {
@@ -418,6 +449,28 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
             file_logger->debug("vec_x[{}] = {}", i, vec_x[i]);
         }
 
+        if (m_classification && m_average_window > 0){
+            vec_window.pop_front();
+            vec_window.push_back(vec_x);
+
+            // xを初期化
+            for (size_t i = 0; i < N_x; i++){
+                vec_x[i] = 0.0f;
+            }
+
+            // 列ごとに平均をとってxに代入する
+            for (size_t w = 0; w < m_average_window; w++){
+                for (size_t i = 0; i < N_x; i++){
+                    vec_x[i] += vec_window[w][i];
+
+                    // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
+                    if (w == m_average_window - 1){
+                        vec_x[i] /= (1.0f * m_average_window);
+                    }
+                }
+            }
+        }
+
         // 学習器
         if (n > 0){
             // optimizerの更新
@@ -446,7 +499,8 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
 
         auto y_pred = m_matlib.dot(vec_w_out, vec_x);
         for (size_t j = 0; j < N_y; j++){
-            *y.mutable_data(n, j) = (*y_pred)[j];
+            //  yの値をスケール変換する e.g. -1～1の値を0～1へ変換する
+            *y.mutable_data(n, j) = m_y_scale * (*y_pred)[j] + m_y_shift;
         }
 
         n++;
@@ -907,13 +961,66 @@ TEST_CASE("[test] SMatrix2") {
     std::cout << "[PASS] SMatrix2" << std::endl;
 }
 
+TEST_CASE("[test] deque") {
+    size_t win_size = 3;
+    size_t data_size = 4;
+    auto mat_win = std::make_unique<std::deque<std::vector<float>>>(win_size, std::vector<float>(data_size, 0.0f));
+    auto average = std::make_unique<std::vector<float>>(data_size, 0.0f);
+    for (size_t t = 0; t < 10; t++){
+        std::vector<float> tmp(data_size);
+        for (size_t i = 0; i < data_size; i++){
+            tmp[i] = (float)((i+1) * (t+1));
+        }
+
+        mat_win->pop_front();
+        mat_win->push_back(tmp);
+
+        // 画面出力
+        std::cout << "t = " << t << std::endl;
+        for (const auto& row : *mat_win){
+            for (const auto& elem : row){
+                std::cout << elem << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        // average
+        // 初期化
+        for (size_t i = 0; i < data_size; i++){
+            (*average)[i] = 0.0f;
+        }
+
+        for (size_t w = 0; w < win_size; w++){
+            for (size_t i = 0; i < data_size; i++){
+                (*average)[i] += (*mat_win)[w][i];
+
+                // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
+                if (w == win_size - 1){
+                    (*average)[i] /= (1.0f * win_size);
+                }
+            }
+        }
+
+        // 結果を画面出力
+        std::cout << "window average" << std::endl;
+        for (const auto& elem : *average){
+            std::cout << elem << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
 #endif
 
 #ifdef USE_PYBIND
 PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
-        .def(py::init<size_t, size_t, size_t, float, float, float, float>())
+        .def(py::init<size_t, size_t, size_t, float, float, float, float, bool, size_t, float, float>(),
+            py::arg("n_u"), py::arg("n_y"), py::arg("n_x"),
+            py::arg("density"), py::arg("input_scale"), py::arg("rho"), py::arg("leaking_rate")=1.0f,
+            py::arg("classification")=false, py::arg("average_window")=0,
+            py::arg("y_scale")=1.0f, py::arg("y_shift")=0.0f)
         .def(py::init())
         .def("SetWout", &ESN::SetWout)
         .def("SetWin", &ESN::SetWin)
