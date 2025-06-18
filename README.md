@@ -1,9 +1,14 @@
 # reservoir-breathing-wave2
 * ESN(Echo State Network)を用いて、動物の安静時の動画から呼吸数を求めるプログラム
 * 開発環境は、dockerフォルダにて下記コマンドを実行してコンテナを起動する
-   - ```
-     docker compose up -d 
-     ```
+   - docker on x86_64
+      - ```
+        docker compose up -d
+        ```
+   - docker on Apple silicon
+      - ```
+        docker compose --env-file .env.mac up -d
+        ```
 * RSNの学習と推論は、下記文献の付録にあるコードを参考にした
    - リザバーコンピューティング: 時系列パターン認識のための高速機械学習の理論とハードウェア
       - https://www.morikita.co.jp/books/mid/085531
