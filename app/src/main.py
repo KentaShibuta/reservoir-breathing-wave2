@@ -352,7 +352,7 @@ def WAVE_CLASSIFICATION_TEST():
                      y_scale=0.5, y_shift=0.5)
 
     # 学習（リッジ回帰）
-    train_Y = model.Train(train_U, train_D)
+    train_Y = model.Train(train_U, train_D, beta=0.1)
 
     # 訓練データに対するモデル出力
     test_Y = model.Predict(test_U)

@@ -50,9 +50,13 @@ class SMatrix2{
         std::unique_ptr<std::vector<T>> dot (const std::vector<std::vector<T>> &mat, const std::vector<T> &vec);
         template <typename T>
         std::unique_ptr<std::vector<std::vector<T>>> matMul (const std::vector<std::vector<T>> &A, const std::vector<std::vector<T>> &B);
+        template <typename MatrixType, typename VectorType, typename T>
+        std::unique_ptr<std::vector<std::vector<T>>> GetInverse (const std::vector<std::vector<T>>& mat, T epsilon);
 #ifdef USE_PYBIND
         template <typename MatrixType, typename VectorType, typename T>
-        std::unique_ptr<std::vector<std::vector<T>>> GetInversePy (const std::vector<std::vector<T>>& mat);
+        std::unique_ptr<std::vector<std::vector<T>>> GetInverseSVD (const std::vector<std::vector<T>>& mat, T epsilon);
+        template <typename MatrixType, typename VectorType, typename T>
+        std::unique_ptr<std::vector<std::vector<T>>> GetInversePinv (const std::vector<std::vector<T>>& mat);
 #endif
 };
 

@@ -55,7 +55,7 @@ class ESN{
 
 #ifdef USE_PYBIND
         py::array_t<float> Predict(py::array_t<float> u);
-        py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d);
+        py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d, float beta=0.0f);
         void SetWout(py::array_t<float> w_out);
         void SetWin(py::array_t<float> w_in);
         void SetW(py::array_t<float> w);

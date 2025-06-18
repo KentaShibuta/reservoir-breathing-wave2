@@ -272,6 +272,7 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     
     std::cout << "Running Predict" << std::endl;
     size_t n = 0;
+    float inv_average_window = 1.0f / m_average_window;
     for (const auto& input : vec_u){
 
         /*
@@ -301,19 +302,16 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
             vec_window.pop_front();
             vec_window.push_back(vec_x);
 
-            // xを初期化
-            for (size_t i = 0; i < N_x; i++){
-                vec_x[i] = 0.0f;
-            }
-
             // 列ごとに平均をとってxに代入する
-            for (size_t w = 0; w < m_average_window; w++){
-                for (size_t i = 0; i < N_x; i++){
-                    vec_x[i] += vec_window[w][i];
+            for (size_t i = 0; i < N_x; i++){
+                float tmp = 0.0f;
+                for (size_t w = 0; w < m_average_window; w++){
+                    tmp += vec_window[w][i];
 
                     // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
                     if (w == m_average_window - 1){
-                        vec_x[i] /= (1.0f * m_average_window);
+                        tmp *= inv_average_window;
+                        vec_x[i] = tmp;
                     }
                 }
             }
@@ -335,7 +333,7 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
 #endif
 
 #ifdef USE_PYBIND
-py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
+py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float beta){
     auto file_logger = spdlog::basic_logger_mt("basic_logger", "./log/log_train.txt");
     spdlog::set_level(spdlog::level::debug);
 
@@ -420,6 +418,7 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     auto D_XT = std::make_unique<std::vector<std::vector<double>>>(N_y, std::vector<double>(N_x, 0.0));
 
     //std::cout << "vec_u_type: " << typeid(vec_u).name() << std::endl;
+    float inv_average_window = 1.0f / m_average_window;
     for (const auto& input : vec_u){
         //size_t step = 0;
 
@@ -453,19 +452,16 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
             vec_window.pop_front();
             vec_window.push_back(vec_x);
 
-            // xを初期化
-            for (size_t i = 0; i < N_x; i++){
-                vec_x[i] = 0.0f;
-            }
-
             // 列ごとに平均をとってxに代入する
-            for (size_t w = 0; w < m_average_window; w++){
-                for (size_t i = 0; i < N_x; i++){
-                    vec_x[i] += vec_window[w][i];
+            for (size_t i = 0; i < N_x; i++){
+                float tmp = 0.0f;
+                for (size_t w = 0; w < m_average_window; w++){
+                    tmp += vec_window[w][i];
 
                     // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
                     if (w == m_average_window - 1){
-                        vec_x[i] /= (1.0f * m_average_window);
+                        tmp *= inv_average_window;
+                        vec_x[i] = tmp;
                     }
                 }
             }
@@ -509,7 +505,16 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d){
     std::cout << "start updating Wout" << std::endl;
     // 学習済みの出力結合重み行列を設定
     // X_XTの疑似逆行列を求める
-    auto inv_X_XT = m_matlib.GetInversePy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT);
+    if (beta > 0.0){
+        file_logger->debug("beta = {}", beta);
+        for (size_t i = 0; i < N_x; i++){
+            // 対角成分にのみ正則化項を加算
+            (*X_XT)[i][i] += beta;
+        }
+    }
+    //auto inv_X_XT = m_matlib.GetInverseSVD<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
+    //auto inv_X_XT = m_matlib.GetInversePinv<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT);
+    auto inv_X_XT = m_matlib.GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
 
     /*
     size_t inv_i = 0;
@@ -1027,7 +1032,8 @@ PYBIND11_MODULE(esn, m){
         .def("SetW", &ESN::SetW)
         .def("Print", &ESN::Print)
         .def("Predict", &ESN::Predict)
-        .def("Train", &ESN::Train)
+        .def("Train", &ESN::Train,
+            py::arg("u"), py::arg("d"), py::arg("beta") = 0.0f)
         .def("GetWout", &ESN::GetWout)
         .def("GetInversePy2", &ESN::GetInversePy2);
 }
