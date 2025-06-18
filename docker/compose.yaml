@@ -8,5 +8,7 @@ services:
          - ../app/model:/root/app/model
          - ../app/lib:/root/app/lib
          - ../app/.vscode:/root/app/.vscode
+      environment:
+         - DISPLAY=${DISPLAY}
       stdin_open: true
       tty: true
