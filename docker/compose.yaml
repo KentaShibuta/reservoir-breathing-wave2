@@ -9,6 +9,7 @@ services:
          - ../app/lib:/root/app/lib
          - ../app/.vscode:/root/app/.vscode
       environment:
-         - DISPLAY=${DISPLAY}
+         # for Mac
+         #- DISPLAY=host.docker.internal:0.0
       stdin_open: true
       tty: true

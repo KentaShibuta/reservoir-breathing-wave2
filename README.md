@@ -2,10 +2,22 @@
 * ESN(Echo State Network)を用いて、動物の安静時の動画から呼吸数を求めるプログラム
 * 開発環境は、dockerフォルダにて下記コマンドを実行してコンテナを起動する
    - docker on x86_64
+      - 下記コマンドを実行しコンテナを起動する
       - ```
         docker compose up -d
         ```
    - docker on Apple silicon
+      - XQuartzを動かし、下記コマンドを実行し、localhostからの接続を許可する
+         - XQuartzの設定にて、[セキュリティ] > [ネットワーク・クライアントからの接続を許可]にチェックを入れて、XQuartzを再起動する
+         - Macのターミナルで下記コマンドを実行する
+         - ```
+           xhost +localhost
+           ```
+      - compose.yamlの下記行のコメントを解除する
+        ```
+        - DISPLAY=host.docker.internal:0.0
+        ```
+      - 下記コマンドを実行しコンテナを起動する
       - ```
         docker compose --env-file .env.mac up -d
         ```
