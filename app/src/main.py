@@ -347,12 +347,12 @@ def WAVE_CLASSIFICATION_TEST():
     # ESNモデル
     N_x = 50  # リザバーのノード数
     model = ESNCpp(train_U.shape[1], train_D.shape[1], N_x, density=0.1,
-                     input_scale=0.2, rho=0.9,
+                     input_scale=0.2, rho=0.9, fb_scale=0.05,
                      classification=True, average_window=period,
                      y_scale=0.5, y_shift=0.5)
 
     # 学習（リッジ回帰）
-    train_Y = model.Train(train_U, train_D, beta=0.1)
+    train_Y = model.Train(train_U, train_D, beta=0.5)
 
     # 訓練データに対するモデル出力
     test_Y = model.Predict(test_U)

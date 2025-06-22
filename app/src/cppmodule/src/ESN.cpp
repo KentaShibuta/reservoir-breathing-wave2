@@ -18,7 +18,7 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
 }
 
 #ifdef USE_PYBIND
-ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, bool classification, size_t average_window, float y_scale, float y_shift){
+ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale, bool classification, size_t average_window, float y_scale, float y_shift){
     m_matlib = SMatrix2();
     N_u = n_u;
     std::cout << "init N_u: " << N_u << std::endl;
@@ -28,6 +28,7 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     auto mat_w_in = m_matlib.generate_uniform_random(N_x, N_u, input_scale);
     auto mat_w = make_connection_mat<Eigen::MatrixXf, Eigen::VectorXcf, float>(N_x, density, rho);
     auto mat_w_out = m_matlib.generate_normal_distribution(N_y, N_x, 0.0f, 1.0f);
+    auto mat_w_fb = m_matlib.generate_uniform_random(N_x, N_y, fb_scale);
 
     auto x_ptr = std::make_unique<std::vector<float>>(N_x, 0.0f);
     auto mat_window = std::make_unique<std::deque<std::vector<float>>>(average_window, std::vector<float>(N_x, 0.0f));
@@ -35,6 +36,7 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     vec_w_in = std::move(*mat_w_in);
     vec_w = std::move(*mat_w);
     vec_w_out = std::move(*mat_w_out);
+    vec_w_fb = std::move(*mat_w_fb);
     vec_x = std::move(*x_ptr);
     vec_window = std::move(*mat_window);
     a_alpha = leaking_rate;
@@ -273,6 +275,7 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     std::cout << "Running Predict" << std::endl;
     size_t n = 0;
     float inv_average_window = 1.0f / m_average_window;
+    auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f); // フィードバック用
     for (const auto& input : vec_u){
 
         /*
@@ -290,12 +293,13 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         }
         */
 
+        auto x_back = m_matlib.dot(vec_w_fb, *y_prev);
         auto x_in = m_matlib.dot(vec_w_in, input);
         auto w_dot_x = m_matlib.dot(vec_w, vec_x);
 
         // リザバー状態ベクトルの更新
         for (size_t i = 0; i < N_x; i++){
-            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]);
+            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]) + (*x_back)[i];
         }
 
         if (m_classification && m_average_window > 0){
@@ -320,7 +324,9 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         auto y_pred = m_matlib.dot(vec_w_out, vec_x);
         for (size_t j = 0; j < N_y; j++){
             // yの値をスケール変換する e.g. -1～1の値を0～1へ変換する
-            *y.mutable_data(n, j) = m_y_scale * (*y_pred)[j] + m_y_shift;
+            (*y_pred)[j] = m_y_scale * (*y_pred)[j] + m_y_shift;
+            *y.mutable_data(n, j) = (*y_pred)[j];
+            (*y_prev)[j] = (*y_pred)[j]; // フィードバック用. 推論結果をバックアップ
         }
 
         n++;
@@ -419,6 +425,7 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
 
     //std::cout << "vec_u_type: " << typeid(vec_u).name() << std::endl;
     float inv_average_window = 1.0f / m_average_window;
+    auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f); // フィードバック用
     for (const auto& input : vec_u){
         //size_t step = 0;
 
@@ -438,13 +445,13 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
 
         //std::cout << "input_type: " << typeid(input).name() << std::endl;
         //std::cout << "input_size: " << input.size() << std::endl;
-
+        auto x_back = m_matlib.dot(vec_w_fb, *y_prev);
         auto x_in = m_matlib.dot(vec_w_in, input);
         auto w_dot_x = m_matlib.dot(vec_w, vec_x);
 
         // リザバー状態ベクトルの更新
         for (size_t i = 0; i < N_x; i++){
-            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i]);
+            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i] + (*x_back)[i]);
             file_logger->debug("vec_x[{}] = {}", i, vec_x[i]);
         }
 
@@ -496,7 +503,9 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
         auto y_pred = m_matlib.dot(vec_w_out, vec_x);
         for (size_t j = 0; j < N_y; j++){
             //  yの値をスケール変換する e.g. -1～1の値を0～1へ変換する
-            *y.mutable_data(n, j) = m_y_scale * (*y_pred)[j] + m_y_shift;
+            (*y_pred)[j] = m_y_scale * (*y_pred)[j] + m_y_shift;
+            *y.mutable_data(n, j) = (*y_pred)[j];
+            (*y_prev)[j] = (*vec_d)[n][j]; // フィードバック用. ラベルをバックアップ
         }
 
         n++;
@@ -962,7 +971,31 @@ TEST_CASE("[test] SMatrix2") {
     std::cout << typeid((*matMul_f)[0][0]).name() << std::endl;
     CHECK(std::string(typeid((*matMul_f)[0][0]).name()) == "f");
 
-
+    std::cout << "matAdd" << std::endl;
+    auto matAdd_d = matlib2.matAdd(A_d, B_d);
+    std::cout << typeid((*matAdd_d)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*matAdd_d)[0][0]).name()) == "d");
+    CHECK((*matAdd_d).size() == A_d.size());
+    CHECK((*matAdd_d).size() == B_d.size());
+    CHECK((*matAdd_d)[0].size() == A_d[0].size());
+    CHECK((*matAdd_d)[0].size() == B_d[0].size());
+    for (size_t i=0; i<(*matAdd_d).size(); i++){
+        for (size_t j=0; j<(*matAdd_d)[0].size(); j++){
+            CHECK((*matAdd_d)[i][j] == A_d[i][j] + B_d[i][j]);
+        }
+    }
+    auto matAdd_f = matlib2.matAdd(A_f, B_f);
+    std::cout << typeid((*matAdd_f)[0][0]).name() << std::endl;
+    CHECK(std::string(typeid((*matAdd_f)[0][0]).name()) == "f");
+    CHECK((*matAdd_f).size() == A_f.size());
+    CHECK((*matAdd_f).size() == B_f.size());
+    CHECK((*matAdd_f)[0].size() == A_f[0].size());
+    CHECK((*matAdd_f)[0].size() == B_f[0].size());
+    for (size_t i=0; i<(*matAdd_f).size(); i++){
+        for (size_t j=0; j<(*matAdd_f)[0].size(); j++){
+            CHECK((*matAdd_f)[i][j] == A_f[i][j] + B_f[i][j]);
+        }
+    }
     std::cout << "[PASS] SMatrix2" << std::endl;
 }
 
@@ -1021,10 +1054,10 @@ TEST_CASE("[test] deque") {
 PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
-        .def(py::init<size_t, size_t, size_t, float, float, float, float, bool, size_t, float, float>(),
+        .def(py::init<size_t, size_t, size_t, float, float, float, float, float, bool, size_t, float, float>(),
             py::arg("n_u"), py::arg("n_y"), py::arg("n_x"),
             py::arg("density"), py::arg("input_scale"), py::arg("rho"), py::arg("leaking_rate")=1.0f,
-            py::arg("classification")=false, py::arg("average_window")=0,
+            py::arg("fb_scale")=0.0f, py::arg("classification")=false, py::arg("average_window")=0,
             py::arg("y_scale")=1.0f, py::arg("y_shift")=0.0f)
         .def(py::init())
         .def("SetWout", &ESN::SetWout)

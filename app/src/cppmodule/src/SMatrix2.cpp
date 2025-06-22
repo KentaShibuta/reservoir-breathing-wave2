@@ -210,6 +210,32 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::matMul (const std::vector
 template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::matMul<double> (const std::vector<std::vector<double>>&, const std::vector<std::vector<double>>&);
 template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::matMul<float> (const std::vector<std::vector<float>>&, const std::vector<std::vector<float>>&);
 
+// 行列Aと行列Bの和
+template <typename T>
+std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::matAdd (const std::vector<std::vector<T>> &A, const std::vector<std::vector<T>> &B){
+    size_t m = A.size();    // Aの行数
+    size_t n = A[0].size(); // Aの列数 (Bの行数と同じ)
+
+    if (m != B.size() || n != B[0].size()){
+        std::cout << "Size A and B do not match." << std::endl;
+        std::cout << "A: (" << m << ", " << n << ")" << std::endl;
+        std::cout << "B: (" << B.size() << ", " << B[0].size() << ")" << std::endl;
+
+        return nullptr;
+    }
+
+    auto add = std::make_unique<std::vector<std::vector<T>>>(m, std::vector<T>(n, 0.0));
+
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            (*add)[i][j] += A[i][j] + B[i][j];
+        }
+    }
+
+    return add;
+}
+template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::matAdd<double> (const std::vector<std::vector<double>>&, const std::vector<std::vector<double>>&);
+template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::matAdd<float> (const std::vector<std::vector<float>>&, const std::vector<std::vector<float>>&);
 
 // Eigenを使って擬似逆行列を求める
 template <typename MatrixType, typename VectorType, typename T>
