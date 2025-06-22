@@ -409,7 +409,7 @@ template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInverseSV
 
 // pinvを使って擬似逆行列を求める
 template <typename MatrixType, typename VectorType, typename T>
-std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePinv (const std::vector<std::vector<T>>& mat){
+std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInverseNumpy (const std::vector<std::vector<T>>& mat, bool isPinv){
     // matをEigenに変換
     MatrixType eigenMat = vectorMatrixToEigenMatrix<MatrixType, T>(mat);
 
@@ -424,9 +424,9 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePinv (const std
     // 4. Import numpy and call np.linalg.svd
     py::module_ np = py::module_::import("numpy");
     py::object svd = np.attr("linalg").attr("svd");
-    py::object pinv = np.attr("linalg").attr("pinv");
+    py::object inv = isPinv ? np.attr("linalg").attr("pinv") : np.attr("linalg").attr("inv");
 
-    py::array_t<T> pinvMat = pinv(np_matrix);
+    py::array_t<T> pinvMat = inv(np_matrix);
 
     MatrixType Ainv_pinv(pinvMat.shape(0), pinvMat.shape(1));
     for (size_t i = 0; i < (size_t)pinvMat.shape(0); ++i) {
@@ -438,8 +438,8 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePinv (const std
     // 擬似逆行列をvectorに変換
     return eigenMatrixToUniquePtr<MatrixType, T>(Ainv_pinv);
 }
-template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInversePinv<Eigen::MatrixXd, Eigen::VectorXd, double> (const std::vector<std::vector<double>>&);
-template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInversePinv<Eigen::MatrixXf, Eigen::VectorXf, float> (const std::vector<std::vector<float>>&);
+template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double> (const std::vector<std::vector<double>>&, bool);
+template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInverseNumpy<Eigen::MatrixXf, Eigen::VectorXf, float> (const std::vector<std::vector<float>>&, bool);
 
 
 #endif

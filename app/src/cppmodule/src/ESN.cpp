@@ -522,7 +522,8 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
         }
     }
     //auto inv_X_XT = m_matlib.GetInverseSVD<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
-    //auto inv_X_XT = m_matlib.GetInversePinv<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT);
+    //auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, true); //pinv
+    //auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, false); //inv
     auto inv_X_XT = m_matlib.GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
 
     /*

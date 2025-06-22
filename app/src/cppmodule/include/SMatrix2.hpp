@@ -58,7 +58,7 @@ class SMatrix2{
         template <typename MatrixType, typename VectorType, typename T>
         std::unique_ptr<std::vector<std::vector<T>>> GetInverseSVD (const std::vector<std::vector<T>>& mat, T epsilon);
         template <typename MatrixType, typename VectorType, typename T>
-        std::unique_ptr<std::vector<std::vector<T>>> GetInversePinv (const std::vector<std::vector<T>>& mat);
+        std::unique_ptr<std::vector<std::vector<T>>> GetInverseNumpy (const std::vector<std::vector<T>>& mat, bool isPinv=true);
 #endif
 };
 
