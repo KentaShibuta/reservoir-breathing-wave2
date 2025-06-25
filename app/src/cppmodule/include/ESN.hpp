@@ -21,6 +21,36 @@
 namespace py = pybind11;
 #endif
 
+class Reservoir{
+    public:
+        inline Reservoir (){};
+
+        inline void Init (size_t nx){
+                m_nx = nx;
+                auto x_ptr = std::make_unique<std::vector<float>>(nx, 0.0f);
+                m_x = std::move(*x_ptr);
+        }
+
+        inline void SetX (const std::vector<float>& x){
+                size_t i = 0;
+                for (const auto &elem : x){
+                        m_x[i] = elem;
+                        i++;
+                }
+        }
+
+        inline std::unique_ptr<std::vector<float>> GetX (){
+                auto x_output = std::make_unique<std::vector<float>>(m_nx, 0.0f);
+                for (size_t i = 0; i < (*x_output).size(); i++){
+                        (*x_output)[i] = m_x[i];
+                }
+                return x_output;
+        }
+    private:
+        std::vector<float> m_x;
+        size_t m_nx;
+};
+
 class ESN{
     private:
         SMatrix2 m_matlib;
@@ -30,7 +60,9 @@ class ESN{
         float m_y_scale;                                        // yのスケール
         float m_y_inv_scale;                                    // yのスケールの逆数
         float m_y_shift;                                        // yのシフト
+        std::vector<float> m_y_prev;                            // フィードバック用に出力を保存する変数
         void set_Wout (const std::vector<std::vector<double>>& mat);
+        Reservoir reservoir;
     
     public:
         std::vector<std::vector<float>> vec_u;
@@ -60,6 +92,7 @@ class ESN{
         void SetWout(py::array_t<float> w_out);
         void SetWin(py::array_t<float> w_in);
         void SetW(py::array_t<float> w);
+        void SetWfb(py::array_t<float> w_fb);
         py::array_t<float> GetWout();
 
         template <typename MatrixType, typename VectorType, typename T>

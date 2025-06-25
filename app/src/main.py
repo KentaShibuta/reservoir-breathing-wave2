@@ -13,6 +13,7 @@ import logging
 from logging import FileHandler
 from narma import NARMA
 from sinsaw import SINSAW
+#from sinsaw import ScalingShift
 from movie import Movie
 import frame_diff
 import argparse
@@ -274,13 +275,20 @@ def NARMA_TEST():
     rho = 0.9
     leaking_rate = 1.0
 
-    esn_cpp = ESNCpp(1, 1, N_x, density, input_scale, rho, leaking_rate)
     #model = ESN(n_step, n_y, N_x,
-    #            density=density, input_scale=input_scale, rho=rho)#,
-                #fb_scale=0.1, fb_seed=0)
+    #            density=density, input_scale=input_scale, rho=rho,
+    #            fb_scale=0.1, fb_seed=0)
+    #Win, X, W, Wout, Wfb = model.Get()
+    #Win, X, W, Wout = model.Get()
+
+    esn_cpp = ESNCpp(1, 1, N_x, density, input_scale, rho, leaking_rate, fb_scale=0.1)
+    #esn_cpp.SetW(W)
+    #esn_cpp.SetWin(Win)
+    #esn_cpp.SetWfb(Wfb)
+    #esn_cpp.SetWout(Wout)
 
     # 学習（リッジ回帰）
-    train_Y = esn_cpp.Train(train_U, train_D)
+    train_Y = esn_cpp.Train(train_U, train_D, 1e-4)
     #train_Y = model.train(train_U, train_D,
     #                      Tikhonov(N_x, train_D.shape[1], 1e-4))
 
@@ -344,18 +352,34 @@ def WAVE_CLASSIFICATION_TEST():
     test_U = u[T:].reshape(-1, 1)
     test_D = d[T:]
 
-    # ESNモデル
+    #ESNモデル
     N_x = 50  # リザバーのノード数
+
+    # 出力のスケーリング関数
+    #output_func = ScalingShift([0.5, 0.5], [0.5, 0.5])
+    #model_python = ESN(train_U.shape[1], train_D.shape[1], N_x, density=0.1,
+    #        input_scale=0.2, rho=0.9, fb_scale=0.05,
+    #        output_func=output_func, inv_output_func=output_func.inverse,
+    #        classification = True, average_window=period)
+    #Win, X, W, Wout, Wfb = model_python.Get()
+
     model = ESNCpp(train_U.shape[1], train_D.shape[1], N_x, density=0.1,
                      input_scale=0.2, rho=0.9, fb_scale=0.05,
                      classification=True, average_window=period,
                      y_scale=0.5, y_shift=0.5)
+    #model.SetW(W)
+    #model.SetWin(Win)
+    #model.SetWfb(Wfb)
+    #model.SetWout(Wout)
 
     # 学習（リッジ回帰）
-    train_Y = model.Train(train_U, train_D, beta=0.5)
+    train_Y = model.Train(train_U, train_D, beta=0.1)
+    #train_Y = model_python.train(train_U, train_D,
+    #                      Tikhonov(N_x, train_D.shape[1], 0.1))
 
     # 訓練データに対するモデル出力
     test_Y = model.Predict(test_U)
+    #test_Y = model_python.predict(test_U)
 
     # 評価（正解率, accracy）
     mode = np.empty(0, np.int32)
