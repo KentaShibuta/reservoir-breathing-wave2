@@ -14,6 +14,7 @@ from logging import FileHandler
 from narma import NARMA
 from sinsaw import SINSAW
 #from sinsaw import ScalingShift
+from read_speech_data import read_speech_data
 from movie import Movie
 import frame_diff
 import argparse
@@ -363,8 +364,8 @@ def WAVE_CLASSIFICATION_TEST():
     #        classification = True, average_window=period)
     #Win, X, W, Wout, Wfb = model_python.Get()
 
-    model = ESNCpp(train_U.shape[1], train_D.shape[1], N_x, density=0.1,
-                     input_scale=0.2, rho=0.9, fb_scale=0.05,
+    model = ESNCpp(train_U.shape[1], train_D.shape[1], N_x,
+                     density=0.1, input_scale=0.2, rho=0.9, fb_scale=0.05,
                      classification=True, average_window=period,
                      y_scale=0.5, y_shift=0.5)
     #model.SetW(W)
@@ -435,9 +436,125 @@ def WAVE_CLASSIFICATION_TEST():
 
     plt.show()
 
+def SPOKENDIGIT_RECOGNITION_TEST():
+    # 訓練データ，検証データの取得
+    train_list = [1, 2, 3, 4, 5]  # u1-u5が訓練用，残りが検証用
+    train_input, train_output, train_length, train_label, \
+    test_input, test_output, test_length, test_label = \
+    read_speech_data(dir_name='./Lyon_decimation_128', utterance_train_list=train_list)
+    print("データ読み込み完了．訓練と検証を行っています...")
+
+    N_x_list = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]
+    train_WER = np.empty(0)
+    test_WER = np.empty(0)
+    #bar = tqdm(total = np.sum(N_x_list))
+    for N_x in N_x_list:
+        print("リザバーの大きさ: %d" % N_x)
+
+        # ESNモデル
+        model = ESN(train_input.shape[1], train_output.shape[1], N_x,
+                    density=0.05, input_scale=1.0e+4, rho=0.9, fb_scale=0.0)
+        Win, X, W, Wout, Wfb = model.Get()
+
+        esn_cpp = ESNCpp(train_input.shape[1], train_output.shape[1], N_x,
+                         density=0.05, input_scale=1.0e+4, rho=0.9, fb_scale=0.0)
+
+        #esn_cpp.SetW(W)
+        #esn_cpp.SetWin(Win)
+        #esn_cpp.SetWfb(Wfb)
+        #esn_cpp.SetWout(Wout)
+
+        ########## 訓練データに対して
+        """
+        # リザバー状態行列
+        stateCollectMat = np.empty((0, N_x))
+        for i in range(len(train_input)):
+            u_in = model.Input(train_input[i])
+            r_out = model.Reservoir(u_in)
+            stateCollectMat = np.vstack((stateCollectMat, r_out))
+
+        # 教師出力データ行列
+        teachCollectMat = train_output
+
+        # 学習（疑似逆行列）
+        Wout = np.dot(teachCollectMat.T, np.linalg.pinv(stateCollectMat.T))
+        """
+        #model.train(train_input, train_output, Tikhonov(N_x, train_output.shape[1], 0.0))
+        esn_cpp.Train(train_input, train_output, beta=0.0)
+
+        # ラベル出力
+        #Y_pred = np.dot(Wout, stateCollectMat.T)
+        #Y_pred = model.predict(train_input)
+        Y_pred = esn_cpp.Predict(train_input)
+        Y_pred = Y_pred.T # 転置して、N_y * tauの行列にする
+        pred_train = np.empty(0, np.int32)
+        start = 0
+        for i in range(len(train_length)):
+            tmp = Y_pred[:,start:start+train_length[i]]  # 1つのデータに対する出力
+            max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+            histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
+            pred_train = np.hstack((pred_train, np.argmax(histogram)))  # 最頻値
+            start = start + train_length[i]
+
+        # 訓練誤差(Word Error Rate, WER)
+        count = 0
+        for i in range(len(train_length)):
+            if pred_train[i] != train_label[i]:
+                count = count + 1
+        print("訓練誤差： WER = %5.4lf" % (count/len(train_length)))
+        train_WER = np.hstack((train_WER, count/len(train_length)))
+
+        ########## 検証データに対して
+        """
+        # リザバー状態行列
+        stateCollectMat = np.empty((0, N_x))
+        for i in range(len(test_input)):
+            u_in = model.Input(test_input[i])
+            r_out = model.Reservoir(u_in)
+            stateCollectMat = np.vstack((stateCollectMat, r_out))
+        """
+
+        # ラベル出力
+        #Y_pred = np.dot(Wout, stateCollectMat.T)
+        #Y_pred = model.predict(test_input)
+        Y_pred = esn_cpp.Predict(test_input)
+        Y_pred = Y_pred.T # 転置して、N_y * tauの行列にする
+        pred_test = np.empty(0, dtype=np.int32)
+        start = 0
+        for i in range(len(test_length)):
+            tmp = Y_pred[:,start:start+test_length[i]]  # 1つのデータに対する出力
+            max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+            histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
+            pred_test = np.hstack((pred_test, np.argmax(histogram)))  # 最頻値
+            start = start + test_length[i]
+
+        # 検証誤差(WER)
+        count = 0
+        for i in range(len(test_length)):
+            if pred_test[i] != test_label[i]:
+                count = count + 1
+        print("検証誤差： WER = %5.4lf" % (count/len(test_length)))
+        test_WER = np.hstack((test_WER, count/len(test_length)))
+
+    # グラフ表示
+    plt.rcParams['font.size'] = 12
+    fig = plt.figure(figsize=(7, 5))
+
+    plt.plot(N_x_list, train_WER, marker='o', fillstyle='none',
+             markersize=8, color='k', label='Training')
+    plt.plot(N_x_list, test_WER, marker='s',
+             markersize=8, color='k', label='Testing')
+    plt.xticks(N_x_list)
+    plt.xlabel("Size of reservoir")
+    plt.ylabel("WER")
+    plt.legend(bbox_to_anchor=(1, 1), loc='upper right')
+
+    plt.show()
+
 def main():
     #NARMA_TEST()
     #WAVE_CLASSIFICATION_TEST()
+    #SPOKENDIGIT_RECOGNITION_TEST()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-g', '--getimages', action='store_true')
