@@ -43,7 +43,6 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     vec_w_out = std::move(*mat_w_out);
     vec_w_fb = std::move(*mat_w_fb);
     vec_x = std::move(*x_ptr);
-    vec_window = std::move(*mat_window);
     a_alpha = leaking_rate;
     m_classification = classification;
     m_average_window = average_window;
@@ -53,6 +52,7 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f);
     m_y_prev = std::move(*y_prev);
     reservoir.Init(N_x);
+    m_vec_window.Init(average_window, N_x);
 }
 #endif
 
@@ -344,22 +344,9 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         }
 
         if (m_classification && m_average_window > 0){
-            vec_window.pop_front();
-            vec_window.push_back(vec_x);
+            m_vec_window.Update(vec_x);
+            m_vec_window.GetAverage(vec_x);
 
-            // 列ごとに平均をとってxに代入する
-            for (size_t i = 0; i < N_x; i++){
-                float tmp = 0.0f;
-                for (size_t w = 0; w < m_average_window; w++){
-                    tmp += vec_window[w][i];
-
-                    // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
-                    if (w == m_average_window - 1){
-                        tmp *= inv_average_window;
-                        vec_x[i] = tmp;
-                    }
-                }
-            }
 
             if (n == 0 || (n >= 10 && n <= 12)){
                 logger->debug("n = {}, x_average[0] = {}", n, vec_x[0]);
@@ -601,22 +588,8 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
         }
 
         if (m_classification && m_average_window > 0){
-            vec_window.pop_front();
-            vec_window.push_back(vec_x);
-
-            // 列ごとに平均をとってxに代入する
-            for (size_t i = 0; i < N_x; i++){
-                float tmp = 0.0f;
-                for (size_t w = 0; w < m_average_window; w++){
-                    tmp += vec_window[w][i];
-
-                    // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
-                    if (w == m_average_window - 1){
-                        tmp *= inv_average_window;
-                        vec_x[i] = tmp;
-                    }
-                }
-            }
+            m_vec_window.Update(vec_x);
+            m_vec_window.GetAverage(vec_x);
 
             if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
                 logger->debug("n = {}, x_average[0] = {}", n, vec_x[0]);
@@ -1243,44 +1216,54 @@ TEST_CASE("[test] SMatrix2") {
     std::cout << "[PASS] SMatrix2" << std::endl;
 }
 
-TEST_CASE("[test] deque") {
+TEST_CASE("[test] circulation buffer"){
+    std::cout << "START [test] circulation buffer" << std::endl;
+
     size_t win_size = 3;
     size_t data_size = 4;
-    auto mat_win = std::make_unique<std::deque<std::vector<float>>>(win_size, std::vector<float>(data_size, 0.0f));
+
+    auto deq_mat_win = std::make_unique<std::deque<std::vector<float>>>(win_size, std::vector<float>(data_size, 0.0f));
+    auto deq_average = std::make_unique<std::vector<float>>(data_size, 0.0f);
     auto average = std::make_unique<std::vector<float>>(data_size, 0.0f);
+
+    SCirculationBuffer cbuffer = SCirculationBuffer();
+    cbuffer.Init(win_size, data_size);
+
     for (size_t t = 0; t < 10; t++){
         std::vector<float> tmp(data_size);
         for (size_t i = 0; i < data_size; i++){
             tmp[i] = (float)((i+1) * (t+1));
         }
 
-        mat_win->pop_front();
-        mat_win->push_back(tmp);
+        deq_mat_win->pop_front();
+        deq_mat_win->push_back(tmp);
+
+        cbuffer.Update(tmp);
 
         // 画面出力
         std::cout << "t = " << t << std::endl;
-        for (const auto& row : *mat_win){
-            for (const auto& elem : row){
-                std::cout << elem << " ";
-            }
-            std::cout << std::endl;
-        }
+        cbuffer.Print();
 
-        // average
+        // 平均化
         // 初期化
         for (size_t i = 0; i < data_size; i++){
-            (*average)[i] = 0.0f;
+            (*deq_average)[i] = 0.0f;
         }
-
         for (size_t w = 0; w < win_size; w++){
             for (size_t i = 0; i < data_size; i++){
-                (*average)[i] += (*mat_win)[w][i];
+                (*deq_average)[i] += (*deq_mat_win)[w][i];
 
                 // 末尾の要素まで足しこんだ後に、window sizeで割って平均を計算する
                 if (w == win_size - 1){
-                    (*average)[i] /= (1.0f * win_size);
+                    (*deq_average)[i] /= (1.0f * win_size);
                 }
             }
+        }
+
+        cbuffer.GetAverage(*average);
+
+        for (size_t i = 0; i < data_size; i++){
+            CHECK((*average)[i] == (*deq_average)[i]);
         }
 
         // 結果を画面出力
@@ -1289,6 +1272,7 @@ TEST_CASE("[test] deque") {
             std::cout << elem << " ";
         }
         std::cout << std::endl;
+        std::cout << "----------" << std::endl;
     }
 }
 

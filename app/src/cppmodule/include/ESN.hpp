@@ -14,6 +14,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include "SMatrix.hpp"
 #include "SMatrix2.hpp"
+#include "SCirculationBuffer.hpp"
 
 #ifdef USE_PYBIND
 #include <pybind11/pybind11.h>
@@ -54,7 +55,7 @@ class Reservoir{
 class ESN{
     private:
         SMatrix2 m_matlib;
-        std::deque<std::vector<float>> vec_window;              // 分類時に時間平均をとるためのデータ格納場所
+        //std::deque<std::vector<float>> vec_window;              // 分類時に時間平均をとるためのデータ格納場所
         bool m_classification;                                  // 扱う問題を分類タスクにするか？
         size_t m_average_window;                                // ウィンドウサイズ
         float m_y_scale;                                        // yのスケール
@@ -63,6 +64,7 @@ class ESN{
         std::vector<float> m_y_prev;                            // フィードバック用に出力を保存する変数
         void set_Wout (const std::vector<std::vector<double>>& mat);
         Reservoir reservoir;
+        SCirculationBuffer m_vec_window;
     
     public:
         std::vector<std::vector<float>> vec_u;
