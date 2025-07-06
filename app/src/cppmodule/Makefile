@@ -1,8 +1,19 @@
+# CPUアーキテクチャ
+ARCH := $(shell uname -m)
+
 # =============================
 # コンパイラとオプション
 # =============================
 CC := g++
-CFLAGS := -O3 -Wall -std=c++23 -fopenmp -L/root/app/lib/spdlog/build -lspdlog -lpython3.12
+
+ifeq ($(ARCH), x86_64)
+    CFLAGS := -O3 -Wall -std=c++23 -fopenmp -L/root/app/lib/spdlog/build/x86_x64 -lspdlog -lpython3.12
+else ifeq ($(ARCH), aarch64)
+    CFLAGS := -O3 -Wall -std=c++23 -fopenmp -L/root/app/lib/spdlog/build/aarch64 -lspdlog -lpython3.12
+else
+    $(error Unsupported architecture: $(ARCH))
+endif
+
 INCLUDES := -I /root/app/lib/eigen3 -I /root/app/src/cppmodule/include -I /root/app/lib/spdlog/include -I/root/app/lib/matplotlibcpp -I/usr/local/include/python3.12 -I/usr/local/lib/python3.12/site-packages/numpy/_core/include
 PY_CFLAGS := -shared -fPIC -fvisibility=hidden $(shell python3 -m pybind11 --includes) -DUSE_PYBIND
 TEST_INCLUDES := -I/root/app/lib/doctest
