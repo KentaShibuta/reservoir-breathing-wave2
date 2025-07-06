@@ -14,12 +14,14 @@
            xhost +localhost
            ```
       - compose.yamlの下記行のコメントを解除する
-        ```
-        - DISPLAY=host.docker.internal:0.0
-        ```
+         ```
+         #environment:
+            # for Mac
+            #- DISPLAY=host.docker.internal:0.0
+         ```
       - 下記コマンドを実行しコンテナを起動する
       - ```
-        docker compose --env-file .env.mac up -d
+        docker compose up -d
         ```
 * RSNの学習と推論は、下記文献の付録にあるコードを参考にした
    - リザバーコンピューティング: 時系列パターン認識のための高速機械学習の理論とハードウェア
