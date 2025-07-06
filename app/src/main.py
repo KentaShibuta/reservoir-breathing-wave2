@@ -12,6 +12,9 @@ from scipy.signal import find_peaks
 import logging
 from logging import FileHandler
 from narma import NARMA
+from sinsaw import SINSAW
+#from sinsaw import ScalingShift
+from read_speech_data import read_speech_data
 from movie import Movie
 import frame_diff
 import argparse
@@ -273,13 +276,20 @@ def NARMA_TEST():
     rho = 0.9
     leaking_rate = 1.0
 
-    esn_cpp = ESNCpp(1, 1, N_x, density, input_scale, rho, leaking_rate)
     #model = ESN(n_step, n_y, N_x,
-    #            density=density, input_scale=input_scale, rho=rho)#,
-                #fb_scale=0.1, fb_seed=0)
+    #            density=density, input_scale=input_scale, rho=rho,
+    #            fb_scale=0.1, fb_seed=0)
+    #Win, X, W, Wout, Wfb = model.Get()
+    #Win, X, W, Wout = model.Get()
+
+    esn_cpp = ESNCpp(1, 1, N_x, density, input_scale, rho, leaking_rate, fb_scale=0.1)
+    #esn_cpp.SetW(W)
+    #esn_cpp.SetWin(Win)
+    #esn_cpp.SetWfb(Wfb)
+    #esn_cpp.SetWout(Wout)
 
     # 学習（リッジ回帰）
-    train_Y = esn_cpp.Train(train_U, train_D)
+    train_Y = esn_cpp.Train(train_U, train_D, 1e-4)
     #train_Y = model.train(train_U, train_D,
     #                      Tikhonov(N_x, train_D.shape[1], 1e-4))
 
@@ -324,8 +334,227 @@ def NARMA_TEST():
 
     plt.show()
 
+def WAVE_CLASSIFICATION_TEST():
+    # 訓練データ，検証データの数
+    n_wave_train = 60
+    n_wave_test = 40
+
+    # 時系列入力データ生成
+    period = 50
+    dynamics = SINSAW(period)
+    label = np.random.choice(2, n_wave_train+n_wave_test)
+    u, d = dynamics.generate_data(label)
+    T = period*n_wave_train
+
+    # 訓練・検証用情報
+    train_U = u[:T].reshape(-1, 1)
+    train_D = d[:T]
+
+    test_U = u[T:].reshape(-1, 1)
+    test_D = d[T:]
+
+    #ESNモデル
+    N_x = 50  # リザバーのノード数
+
+    # 出力のスケーリング関数
+    #output_func = ScalingShift([0.5, 0.5], [0.5, 0.5])
+    #model_python = ESN(train_U.shape[1], train_D.shape[1], N_x, density=0.1,
+    #        input_scale=0.2, rho=0.9, fb_scale=0.05,
+    #        output_func=output_func, inv_output_func=output_func.inverse,
+    #        classification = True, average_window=period)
+    #Win, X, W, Wout, Wfb = model_python.Get()
+
+    model = ESNCpp(train_U.shape[1], train_D.shape[1], N_x,
+                     density=0.1, input_scale=0.2, rho=0.9, fb_scale=0.05,
+                     classification=True, average_window=period,
+                     y_scale=0.5, y_shift=0.5)
+    #model.SetW(W)
+    #model.SetWin(Win)
+    #model.SetWfb(Wfb)
+    #model.SetWout(Wout)
+
+    # 学習（リッジ回帰）
+    train_Y = model.Train(train_U, train_D, beta=0.1)
+    #train_Y = model_python.train(train_U, train_D,
+    #                      Tikhonov(N_x, train_D.shape[1], 0.1))
+
+    # 訓練データに対するモデル出力
+    test_Y = model.Predict(test_U)
+    #test_Y = model_python.predict(test_U)
+
+    # 評価（正解率, accracy）
+    mode = np.empty(0, np.int32)
+    for i in range(n_wave_test):
+        tmp = test_Y[period*i:period*(i+1), :]  # 各ブロックの出力
+        max_index = np.argmax(tmp, axis=1)  # 最大値をとるインデックス
+        histogram = np.bincount(max_index)  # そのインデックスのヒストグラム
+        mode = np.hstack((mode, np.argmax(histogram)))  #  最頻値
+
+    target = test_D[0:period*n_wave_test:period,1]
+    accuracy = 1-np.linalg.norm(mode.astype(np.float32)-target, 1)/n_wave_test
+    print('accuracy =', accuracy)
+
+    # グラフ表示用データ
+    T_disp = (-500, 500)
+    t_axis = np.arange(T_disp[0], T_disp[1])  # 時間軸
+    disp_U = np.concatenate((train_U[T_disp[0]:], test_U[:T_disp[1]]))
+    disp_D = np.concatenate((train_D[T_disp[0]:], test_D[:T_disp[1]]))
+    disp_Y = np.concatenate((train_Y[T_disp[0]:], test_Y[:T_disp[1]]))
+
+    # グラフ表示
+    plt.rcParams['font.size'] = 12
+    fig = plt.figure(figsize=(7, 7))
+    plt.subplots_adjust(hspace=0.3)
+
+    ax1 = fig.add_subplot(3, 1, 1)
+    ax1.text(-0.1, 1, '(a)', transform=ax1.transAxes)
+    ax1.text(0.2, 1.05, 'Training', transform=ax1.transAxes)
+    ax1.text(0.7, 1.05, 'Testing', transform=ax1.transAxes)
+    plt.plot(t_axis, disp_U[:,0], color='k')
+    plt.ylabel('Input')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    ax2 = fig.add_subplot(3, 1, 2)
+    ax2.text(-0.1, 1, '(b)', transform=ax2.transAxes)
+    plt.plot(t_axis, disp_D[:,0], color='k', linestyle='-', label='Target')
+    plt.plot(t_axis, disp_Y[:,0], color='gray', linestyle='--', label='Model')
+    plt.plot([-500, 500], [0.5, 0.5], color='k', linestyle = ':')
+    plt.ylim([-0.3, 1.3])
+    plt.ylabel('Output 1')
+    plt.legend(bbox_to_anchor=(0, 0), loc='lower left')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    ax3 = fig.add_subplot(3, 1, 3)
+    plt.plot(t_axis, disp_D[:, 1], color='k', linestyle='-', label='Target')
+    plt.plot(t_axis, disp_Y[:, 1], color='gray', linestyle='--', label='Model')
+    plt.plot([-500, 500], [0.5, 0.5], color='k', linestyle = ':')
+    plt.ylim([-0.3, 1.3])
+    plt.xlabel('n')
+    plt.ylabel('Output 2')
+    plt.legend(bbox_to_anchor=(0, 0), loc='lower left')
+    plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
+
+    plt.show()
+
+def SPOKENDIGIT_RECOGNITION_TEST():
+    # 訓練データ，検証データの取得
+    train_list = [1, 2, 3, 4, 5]  # u1-u5が訓練用，残りが検証用
+    train_input, train_output, train_length, train_label, \
+    test_input, test_output, test_length, test_label = \
+    read_speech_data(dir_name='./Lyon_decimation_128', utterance_train_list=train_list)
+    print("データ読み込み完了．訓練と検証を行っています...")
+
+    N_x_list = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]
+    train_WER = np.empty(0)
+    test_WER = np.empty(0)
+    #bar = tqdm(total = np.sum(N_x_list))
+    for N_x in N_x_list:
+        print("リザバーの大きさ: %d" % N_x)
+
+        # ESNモデル
+        model = ESN(train_input.shape[1], train_output.shape[1], N_x,
+                    density=0.05, input_scale=1.0e+4, rho=0.9, fb_scale=0.0)
+        Win, X, W, Wout, Wfb = model.Get()
+
+        esn_cpp = ESNCpp(train_input.shape[1], train_output.shape[1], N_x,
+                         density=0.05, input_scale=1.0e+4, rho=0.9, fb_scale=0.0)
+
+        #esn_cpp.SetW(W)
+        #esn_cpp.SetWin(Win)
+        #esn_cpp.SetWfb(Wfb)
+        #esn_cpp.SetWout(Wout)
+
+        ########## 訓練データに対して
+        """
+        # リザバー状態行列
+        stateCollectMat = np.empty((0, N_x))
+        for i in range(len(train_input)):
+            u_in = model.Input(train_input[i])
+            r_out = model.Reservoir(u_in)
+            stateCollectMat = np.vstack((stateCollectMat, r_out))
+
+        # 教師出力データ行列
+        teachCollectMat = train_output
+
+        # 学習（疑似逆行列）
+        Wout = np.dot(teachCollectMat.T, np.linalg.pinv(stateCollectMat.T))
+        """
+        #model.train(train_input, train_output, Tikhonov(N_x, train_output.shape[1], 0.0))
+        esn_cpp.Train(train_input, train_output, beta=0.0)
+
+        # ラベル出力
+        #Y_pred = np.dot(Wout, stateCollectMat.T)
+        #Y_pred = model.predict(train_input)
+        Y_pred = esn_cpp.Predict(train_input)
+        Y_pred = Y_pred.T # 転置して、N_y * tauの行列にする
+        pred_train = np.empty(0, np.int32)
+        start = 0
+        for i in range(len(train_length)):
+            tmp = Y_pred[:,start:start+train_length[i]]  # 1つのデータに対する出力
+            max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+            histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
+            pred_train = np.hstack((pred_train, np.argmax(histogram)))  # 最頻値
+            start = start + train_length[i]
+
+        # 訓練誤差(Word Error Rate, WER)
+        count = 0
+        for i in range(len(train_length)):
+            if pred_train[i] != train_label[i]:
+                count = count + 1
+        print("訓練誤差： WER = %5.4lf" % (count/len(train_length)))
+        train_WER = np.hstack((train_WER, count/len(train_length)))
+
+        ########## 検証データに対して
+        """
+        # リザバー状態行列
+        stateCollectMat = np.empty((0, N_x))
+        for i in range(len(test_input)):
+            u_in = model.Input(test_input[i])
+            r_out = model.Reservoir(u_in)
+            stateCollectMat = np.vstack((stateCollectMat, r_out))
+        """
+
+        # ラベル出力
+        #Y_pred = np.dot(Wout, stateCollectMat.T)
+        #Y_pred = model.predict(test_input)
+        Y_pred = esn_cpp.Predict(test_input)
+        Y_pred = Y_pred.T # 転置して、N_y * tauの行列にする
+        pred_test = np.empty(0, dtype=np.int32)
+        start = 0
+        for i in range(len(test_length)):
+            tmp = Y_pred[:,start:start+test_length[i]]  # 1つのデータに対する出力
+            max_index = np.argmax(tmp, axis=0)  # 最大出力を与える出力ノード番号
+            histogram = np.bincount(max_index)  # 出力ノード番号のヒストグラム
+            pred_test = np.hstack((pred_test, np.argmax(histogram)))  # 最頻値
+            start = start + test_length[i]
+
+        # 検証誤差(WER)
+        count = 0
+        for i in range(len(test_length)):
+            if pred_test[i] != test_label[i]:
+                count = count + 1
+        print("検証誤差： WER = %5.4lf" % (count/len(test_length)))
+        test_WER = np.hstack((test_WER, count/len(test_length)))
+
+    # グラフ表示
+    plt.rcParams['font.size'] = 12
+    fig = plt.figure(figsize=(7, 5))
+
+    plt.plot(N_x_list, train_WER, marker='o', fillstyle='none',
+             markersize=8, color='k', label='Training')
+    plt.plot(N_x_list, test_WER, marker='s',
+             markersize=8, color='k', label='Testing')
+    plt.xticks(N_x_list)
+    plt.xlabel("Size of reservoir")
+    plt.ylabel("WER")
+    plt.legend(bbox_to_anchor=(1, 1), loc='upper right')
+
+    plt.show()
+
 def main():
     #NARMA_TEST()
+    #WAVE_CLASSIFICATION_TEST()
+    #SPOKENDIGIT_RECOGNITION_TEST()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-g', '--getimages', action='store_true')

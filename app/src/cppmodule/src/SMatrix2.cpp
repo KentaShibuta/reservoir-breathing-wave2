@@ -210,10 +210,83 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::matMul (const std::vector
 template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::matMul<double> (const std::vector<std::vector<double>>&, const std::vector<std::vector<double>>&);
 template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::matMul<float> (const std::vector<std::vector<float>>&, const std::vector<std::vector<float>>&);
 
-#ifdef USE_PYBIND
-// 擬似逆行列を求める
+// 行列Aと行列Bの和
+template <typename T>
+std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::matAdd (const std::vector<std::vector<T>> &A, const std::vector<std::vector<T>> &B){
+    size_t m = A.size();    // Aの行数
+    size_t n = A[0].size(); // Aの列数 (Bの行数と同じ)
+
+    if (m != B.size() || n != B[0].size()){
+        std::cout << "Size A and B do not match." << std::endl;
+        std::cout << "A: (" << m << ", " << n << ")" << std::endl;
+        std::cout << "B: (" << B.size() << ", " << B[0].size() << ")" << std::endl;
+
+        return nullptr;
+    }
+
+    auto add = std::make_unique<std::vector<std::vector<T>>>(m, std::vector<T>(n, 0.0));
+
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            (*add)[i][j] += A[i][j] + B[i][j];
+        }
+    }
+
+    return add;
+}
+template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::matAdd<double> (const std::vector<std::vector<double>>&, const std::vector<std::vector<double>>&);
+template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::matAdd<float> (const std::vector<std::vector<float>>&, const std::vector<std::vector<float>>&);
+
+// Eigenを使って擬似逆行列を求める
 template <typename MatrixType, typename VectorType, typename T>
-std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::vector<std::vector<T>>& mat){
+std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInverse (const std::vector<std::vector<T>>& mat, T epsilon){
+    // matをEigenに変換
+    MatrixType eigenMat = vectorMatrixToEigenMatrix<MatrixType, T>(mat);
+
+    // 特異値分解
+    Eigen::JacobiSVD<MatrixType> svd(eigenMat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+    // U, S, V の取得
+    MatrixType U = svd.matrixU();
+    MatrixType S = svd.singularValues();
+    MatrixType V = svd.matrixV();
+
+    // 特異値の逆数を計算（小さすぎる値は0にする）
+    VectorType S_inv(S.size());
+    for (size_t i = 0; i < (size_t)S.size(); ++i) {
+        S_inv(i) = (S(i) > epsilon) ? (1.0 / S(i)) : 0.0;
+    }
+
+    // S を対角行列に変換 (n × m の適切なサイズにする)
+    MatrixType Sigma_pinv = MatrixType::Zero(S.size(), S.size());
+    for (size_t i = 0; i < (size_t)S_inv.size(); ++i) {
+        Sigma_pinv(i, i) = S_inv(i);
+    }
+
+    // 擬似逆行列を計算
+    MatrixType Ainv = V * Sigma_pinv * U.transpose();
+
+    /*
+    std::cout << Ainv(0,0) << std::endl;
+    for (int i = 0; i < Ainv.rows(); ++i) {
+        for (int j = 0; j < Ainv.cols(); ++j) {
+            SMatrix2::logger->debug("Ainv[{}][{}] = {}", i, j, Ainv(i, j));
+        }
+    }
+    */
+
+    // 擬似逆行列をvectorに変換
+    return eigenMatrixToUniquePtr<MatrixType, T>(Ainv);
+}
+template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double> (const std::vector<std::vector<double>>&, double);
+template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInverse<Eigen::MatrixXf, Eigen::VectorXf, float> (const std::vector<std::vector<float>>&, float);
+
+
+
+#ifdef USE_PYBIND
+// svdを使って擬似逆行列を求める
+template <typename MatrixType, typename VectorType, typename T>
+std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInverseSVD (const std::vector<std::vector<T>>& mat, T epsilon){
     // matをEigenに変換
     MatrixType eigenMat = vectorMatrixToEigenMatrix<MatrixType, T>(mat);
 
@@ -304,7 +377,6 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
     }
     */
 
-    T epsilon = 1.0e-5;
     // 特異値の逆数を計算（小さすぎる値は0にする）
     VectorType S_inv(S.size());
     for (size_t i = 0; i < (size_t)S.size(); ++i) {
@@ -332,6 +404,42 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInversePy (const std::
     // 擬似逆行列をvectorに変換
     return eigenMatrixToUniquePtr<MatrixType, T>(Ainv);
 }
-template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInversePy<Eigen::MatrixXd, Eigen::VectorXd, double> (const std::vector<std::vector<double>>&);
-template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInversePy<Eigen::MatrixXf, Eigen::VectorXf, float> (const std::vector<std::vector<float>>&);
+template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInverseSVD<Eigen::MatrixXd, Eigen::VectorXd, double> (const std::vector<std::vector<double>>&, double);
+template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInverseSVD<Eigen::MatrixXf, Eigen::VectorXf, float> (const std::vector<std::vector<float>>&, float);
+
+// pinvを使って擬似逆行列を求める
+template <typename MatrixType, typename VectorType, typename T>
+std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::GetInverseNumpy (const std::vector<std::vector<T>>& mat, bool isPinv){
+    // matをEigenに変換
+    MatrixType eigenMat = vectorMatrixToEigenMatrix<MatrixType, T>(mat);
+
+    // 3. Convert Eigen matrix to Numpy array
+    py::array_t<T> np_matrix({eigenMat.rows(), eigenMat.cols()});
+    for (size_t i = 0; i < (size_t)eigenMat.rows(); ++i) {
+        for (size_t j = 0; j < (size_t)eigenMat.cols(); ++j) {
+            *np_matrix.mutable_data(i, j) = eigenMat(i, j);
+        }
+    }
+
+    // 4. Import numpy and call np.linalg.svd
+    py::module_ np = py::module_::import("numpy");
+    py::object svd = np.attr("linalg").attr("svd");
+    py::object inv = isPinv ? np.attr("linalg").attr("pinv") : np.attr("linalg").attr("inv");
+
+    py::array_t<T> pinvMat = inv(np_matrix);
+
+    MatrixType Ainv_pinv(pinvMat.shape(0), pinvMat.shape(1));
+    for (size_t i = 0; i < (size_t)pinvMat.shape(0); ++i) {
+        for (size_t j = 0; j < (size_t)pinvMat.shape(1); ++j) {
+            Ainv_pinv(i, j) = *pinvMat.data(i, j);
+        }
+    }
+
+    // 擬似逆行列をvectorに変換
+    return eigenMatrixToUniquePtr<MatrixType, T>(Ainv_pinv);
+}
+template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double> (const std::vector<std::vector<double>>&, bool);
+template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::GetInverseNumpy<Eigen::MatrixXf, Eigen::VectorXf, float> (const std::vector<std::vector<float>>&, bool);
+
+
 #endif
