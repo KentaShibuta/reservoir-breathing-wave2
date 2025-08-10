@@ -11,7 +11,6 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
 
     uint_fast32_t seed = 0;
 
-    /*
     std::mt19937 gen(seed); // メルセンヌ・ツイスター法による生成器
     std::uniform_real_distribution<double> dist(-1.0 * scale, 1.0 * scale);
 
@@ -22,8 +21,8 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
             //check[i*col_size + j] = (*numbers)[i][j];
         }
     }
-    */
 
+    /*
     // numpyをインポート
     py::module_ np = py::module_::import("numpy");
     np.attr("random").attr("seed")(seed);
@@ -43,7 +42,7 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
             //check[i*col_size + j] = (*numbers)[i][j];
         }
     }
-
+    */
     /*
     std::sort(check.begin(), check.end());
     outputcsv1d(check);

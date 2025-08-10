@@ -19,7 +19,7 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
 }
 
 #ifdef USE_PYBIND
-ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale, bool classification, size_t average_window, float y_scale, float y_shift){
+ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale, bool classification, size_t average_window, float y_scale, float y_shift, bool reset_reservoir_state){
     std::string log_name = "cpp_esn_logger";
     init_logger(log_name);
     auto logger = spdlog::get(log_name);
@@ -49,6 +49,7 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     m_y_scale = y_scale;
     m_y_inv_scale = 1.0f / y_scale;
     m_y_shift = y_shift;
+    m_reset_reservoir_state = reset_reservoir_state;
     auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f);
     m_y_prev = std::move(*y_prev);
     reservoir.Init(N_x);
@@ -292,7 +293,16 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         auto x_resevoir = reservoir.GetX();
         int x_index = 0;
         for (const auto &elem : *x_resevoir){
-            vec_x[x_index] = elem;
+            if (m_reset_reservoir_state && n % m_average_window == 0){
+                // あるデータと次のデータの境目で、内部状態xを初期化する
+                vec_x[x_index] = 0.0;
+                logger->debug("reset reservoir state");
+                logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+            }else{
+                // あるデータと次のデータの境目で、内部状態をxを初期化しない
+                vec_x[x_index] = elem;
+                logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+            }
             x_index++;
         }
 
@@ -519,8 +529,16 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
         auto x_resevoir = reservoir.GetX();
         int x_index = 0;
         for (const auto &elem : *x_resevoir){
-            vec_x[x_index] = elem;
-            x_index++;
+            if (m_reset_reservoir_state && n % m_average_window == 0){
+                // あるデータと次のデータの境目で、内部状態xを初期化する
+                vec_x[x_index] = 0.0;
+                logger->debug("reset reservoir state");
+                logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+            }else{
+                // あるデータと次のデータの境目で、内部状態をxを初期化しない
+                vec_x[x_index] = elem;
+                logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+            }
         }
 
         //size_t step = 0;
@@ -713,9 +731,9 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
     }
 
     //auto inv_X_XT = m_matlib.GetInverseSVD<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
-    auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, true); //pinv
+    //auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, true); //pinv
     //auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, false); //inv
-    //auto inv_X_XT = m_matlib.GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
+    auto inv_X_XT = m_matlib.GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
 
     //auto inv_X = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X, true); //pinv
 
@@ -1282,11 +1300,11 @@ TEST_CASE("[test] circulation buffer"){
 PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
-        .def(py::init<size_t, size_t, size_t, float, float, float, float, float, bool, size_t, float, float>(),
+        .def(py::init<size_t, size_t, size_t, float, float, float, float, float, bool, size_t, float, float, bool>(),
             py::arg("n_u"), py::arg("n_y"), py::arg("n_x"),
             py::arg("density"), py::arg("input_scale"), py::arg("rho"), py::arg("leaking_rate")=1.0f,
             py::arg("fb_scale")=0.0f, py::arg("classification")=false, py::arg("average_window")=0,
-            py::arg("y_scale")=1.0f, py::arg("y_shift")=0.0f)
+            py::arg("y_scale")=1.0f, py::arg("y_shift")=0.0f, py::arg("reset_reservoir_state")=false)
         .def(py::init())
         .def("SetWout", &ESN::SetWout)
         .def("SetWin", &ESN::SetWin)

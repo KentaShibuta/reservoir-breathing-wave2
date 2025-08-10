@@ -62,6 +62,7 @@ class ESN{
         float m_y_inv_scale;                                    // yのスケールの逆数
         float m_y_shift;                                        // yのシフト
         std::vector<float> m_y_prev;                            // フィードバック用に出力を保存する変数
+        bool m_reset_reservoir_state;                            // 分類タスク時に、データ長ごとにリザバーの内部状態を初期化する
         void set_Wout (const std::vector<std::vector<double>>& mat);
         Reservoir reservoir;
         SCirculationBuffer m_vec_window;
@@ -82,7 +83,7 @@ class ESN{
 
         ESN();
 #ifdef USE_PYBIND
-        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate=1.0f, float fb_scale=0.0f, bool classification=false, size_t average_window=0, float y_scale=1.0f, float y_shift=0.0f);
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate=1.0f, float fb_scale=0.0f, bool classification=false, size_t average_window=0, float y_scale=1.0f, float y_shift=0.0f, bool reset_reservoir_state=false);
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha);
 #endif
 
