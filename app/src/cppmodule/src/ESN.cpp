@@ -1,6 +1,10 @@
 #include "ESN.hpp"
 #include "SLogger.hpp"
 
+#include <matplotlibcpp.h>
+#include <numeric>
+namespace plt = matplotlibcpp;
+
 #ifdef TEST
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN // doctestの実装部とmain関数を有効化する
 #include "doctest.h"
@@ -288,9 +292,28 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     std::cout << "Running Predict" << std::endl;
     size_t n = 0;
     float inv_average_window = 1.0f / m_average_window;
+
+    // 可視化用変数
+    //int plt_n_max = N;
+    int plt_n_max = 384;
+    auto plt_x = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(plt_n_max, 0.0f));
+
+
+
     //auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f); // フィードバック用
     for (const auto& input : vec_u){
         auto x_resevoir = reservoir.GetX();
+
+        if (n == 0){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][0] = elem;
+                plt_nx_count++;
+            }
+        }
+
+
         int x_index = 0;
         for (const auto &elem : *x_resevoir){
             if (m_reset_reservoir_state && n % m_average_window == 0){
@@ -424,7 +447,25 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         }
 
         n++;
+
+        if (n < plt_n_max){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][n] = elem;
+                plt_nx_count++;
+            }
+        }
     }
+
+    auto plt_n_index = std::make_unique<std::vector<int>>(plt_n_max, 0);
+    std::iota((*plt_n_index).begin(), (*plt_n_index).end(), 0);
+
+    plt::plot(*plt_n_index, (*plt_x)[0]);
+
+    std::string plt_file_name = currentDateTime() + "_predict_x.png";
+    plt::save(plt_file_name);
+    plt::close();
 
     std::cout << "Finish Predict" << std::endl;
 
@@ -525,8 +566,25 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
     //std::cout << "vec_u_type: " << typeid(vec_u).name() << std::endl;
     float inv_average_window = 1.0f / m_average_window;
     //auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f); // フィードバック用
+
+    // 可視化用変数
+    //int plt_n_max = N;
+    int plt_n_max = 384;
+    auto plt_x = std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(plt_n_max, 0.0f));
+
+
     for (const auto& input : vec_u){
         auto x_resevoir = reservoir.GetX();
+
+        if (n == 0){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][0] = elem;
+                plt_nx_count++;
+            }
+        }
+
         int x_index = 0;
         for (const auto &elem : *x_resevoir){
             if (m_reset_reservoir_state && n % m_average_window == 0){
@@ -716,7 +774,25 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
         }
 
         n++;
+
+        if (n < plt_n_max){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][n] = elem;
+                plt_nx_count++;
+            }
+        }
     }
+
+    auto plt_n_index = std::make_unique<std::vector<int>>(plt_n_max, 0);
+    std::iota((*plt_n_index).begin(), (*plt_n_index).end(), 0);
+
+    plt::plot(*plt_n_index, (*plt_x)[0]);
+
+    std::string plt_file_name = currentDateTime() + "_train_x.png";
+    plt::save(plt_file_name);
+    plt::close();
 
     std::cout << "start updating Wout" << std::endl;
 

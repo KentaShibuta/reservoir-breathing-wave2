@@ -1,3 +1,6 @@
+#ifndef SUTIL_H_
+#define SUTIL_H_
+
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -5,7 +8,7 @@
 #include <matplotlibcpp.h>
 namespace plt = matplotlibcpp;
 
-std::string currentDateTime() {
+inline std::string currentDateTime() {
     std::time_t t = std::time(nullptr);
     std::tm* now = std::localtime(&t);
  
@@ -15,7 +18,7 @@ std::string currentDateTime() {
 }
 
 template <typename T>
-void outputcsv1d(const std::vector<T> &vec){
+inline void outputcsv1d(const std::vector<T> &vec){
     std::ostringstream oss;
     oss << std::scientific << std::setprecision(17);
 
@@ -30,3 +33,5 @@ void outputcsv1d(const std::vector<T> &vec){
     outputfile << str;
     outputfile.close();
 }
+
+#endif // SUTIL_H_

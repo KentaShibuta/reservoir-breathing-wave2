@@ -1,5 +1,4 @@
 #include "SMatrix2.hpp"
-#include "SUtil.hpp"
 
 std::shared_ptr<spdlog::logger> SMatrix2::logger = nullptr;
 

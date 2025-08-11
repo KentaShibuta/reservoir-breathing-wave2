@@ -10,6 +10,7 @@
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include "SUtil.hpp"
 
 #ifdef USE_PYBIND
 #include <pybind11/embed.h>

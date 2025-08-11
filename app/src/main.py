@@ -452,9 +452,9 @@ def SPOKENDIGIT_RECOGNITION_TEST():
         print("リザバーの大きさ: %d" % N_x)
 
         # ESNモデル
-        model = ESN(train_input.shape[1], train_output.shape[1], N_x,
-                    density=0.05, input_scale=1.0e+4, rho=0.9, fb_scale=0.0)
-        Win, X, W, Wout, Wfb = model.Get()
+        #model = ESN(train_input.shape[1], train_output.shape[1], N_x,
+        #            density=0.05, input_scale=1.0e+4, rho=0.9, fb_scale=0.0)
+        #Win, X, W, Wout, Wfb = model.Get()
 
         esn_cpp = ESNCpp(train_input.shape[1], train_output.shape[1], N_x,
                          density=0.05, input_scale=1.0e+4, rho=0.9, fb_scale=0.0)
@@ -549,7 +549,8 @@ def SPOKENDIGIT_RECOGNITION_TEST():
     plt.ylabel("WER")
     plt.legend(bbox_to_anchor=(1, 1), loc='upper right')
 
-    plt.show()
+    #plt.show()
+    plt.savefig("spokendigit_recognition_wer.png")
 
 def main():
     #NARMA_TEST()

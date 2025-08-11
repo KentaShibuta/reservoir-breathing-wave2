@@ -15,6 +15,7 @@
 #include "SMatrix.hpp"
 #include "SMatrix2.hpp"
 #include "SCirculationBuffer.hpp"
+#include "SUtil.hpp"
 
 #ifdef USE_PYBIND
 #include <pybind11/pybind11.h>
