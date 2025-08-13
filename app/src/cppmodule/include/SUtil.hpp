@@ -34,4 +34,8 @@ inline void outputcsv1d(const std::vector<T> &vec){
     outputfile.close();
 }
 
+inline std::string bool_to_string(bool b) {
+    return b ? "true" : "false";
+}
+
 #endif // SUTIL_H_

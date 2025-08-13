@@ -519,6 +519,30 @@ def SPOKENDIGIT_RECOGNITION_TEST():
         #Y_pred = model.predict(test_input)
         Y_pred = esn_cpp.Predict(test_input)
         Y_pred = Y_pred.T # 転置して、N_y * tauの行列にする
+
+        """
+        # グラフ表示
+        #plt_n_max = 5040
+        #plt_n_max = 17150
+        plt_n_max = 2500
+        plt_n_count = list(range(plt_n_max))
+        plt.rcParams['font.size'] = 12
+        fig = plt.figure(figsize=(7, 5))
+
+        #plt.plot(plt_n_count, Y_pred[0, :80], label="0")
+        plt.plot(plt_n_count, Y_pred[1, :plt_n_max], label="1_predict")
+        plt.plot(plt_n_count, test_output[:plt_n_max, 1], label="1_test")
+
+        plt.xlabel("N")
+        plt.ylabel("Y")
+        plt.legend(loc='lower left')
+        now = datetime.datetime.now()
+        # 任意のフォーマットで文字列化
+        plt_y_file_name = now.strftime("%Y-%m-%d %H:%M:%S") + "_y.png"
+        plt.savefig(plt_y_file_name)
+        plt.close()
+        """
+
         pred_test = np.empty(0, dtype=np.int32)
         start = 0
         for i in range(len(test_length)):
