@@ -1019,6 +1019,15 @@ void ESN::SetWout(py::array_t<float> w_out){
 #endif
 
 #ifdef USE_PYBIND
+void ESN::SetWoutFromWeightFile(const std::string &file_path){
+    std::cout << "Start SetWoutFromWeightFile" << std::endl;
+
+    Read_bin(vec_w_out, file_path);
+}
+
+#endif
+
+#ifdef USE_PYBIND
 void ESN::SetWin(py::array_t<float> w_in){
     const auto &w_in_buf = w_in.request();
     const auto &w_in_shape = w_in_buf.shape;
@@ -1537,6 +1546,7 @@ PYBIND11_MODULE(esn, m){
             py::arg("write_log")=false)
         .def(py::init())
         .def("SetWout", &ESN::SetWout)
+        .def("SetWoutFromWeightFile", &ESN::SetWoutFromWeightFile)
         .def("SetWin", &ESN::SetWin)
         .def("SetW", &ESN::SetW)
         .def("SetWfb", &ESN::SetW)

@@ -16,6 +16,7 @@
 #include "SMatrix2.hpp"
 #include "SCirculationBuffer.hpp"
 #include "SUtil.hpp"
+#include "SIOBinary.hpp"
 
 #include <numeric>
 #include <filesystem>
@@ -110,6 +111,7 @@ class ESN{
         py::array_t<float> Predict(py::array_t<float> u);
         py::array_t<float> Train(py::array_t<float> u, py::array_t<float> d, float beta=0.0f);
         void SetWout(py::array_t<float> w_out);
+        void SetWoutFromWeightFile(const std::string &file_path);
         void SetWin(py::array_t<float> w_in);
         void SetW(py::array_t<float> w);
         void SetWfb(py::array_t<float> w_fb);

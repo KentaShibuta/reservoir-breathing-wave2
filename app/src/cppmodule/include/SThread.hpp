@@ -1,3 +1,6 @@
+#ifndef STHREAD_H_
+#define STHREAD_H_
+
 #include <vector>
 
 class SThread{
@@ -42,3 +45,5 @@ class SThread{
             return m_dstImg;
         }
 };
+
+#endif // STHREAD_H_
