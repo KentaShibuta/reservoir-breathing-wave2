@@ -16,6 +16,8 @@ else
     $(error Unsupported architecture: $(ARCH))
 endif
 
+DEBUG_CFLAGS := -g
+
 ONNX_CLINK := -L/root/app/lib/onnxruntime/build/Linux/RelWithDebInfo -lonnxruntime -Xlinker -rpath -Xlinker /root/app/lib/onnxruntime/build/Linux/RelWithDebInfo
 OPENCV_CLINK := -L/root/app/lib/opencv-4.x/build/lib -lopencv_core -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -lopencv_videoio -lopencv_video -Xlinker -rpath -Xlinker /root/app/lib/opencv-4.x/build/lib
 
@@ -37,14 +39,15 @@ SRC := /root/app/src/cppmodule/src/ESN.cpp /root/app/src/cppmodule/src/SMatrix.c
 ONNX_SRC := /root/app/src/cppmodule/src/SOnnxRuntime.cpp
 OPENCV_SRC := /root/app/src/cppmodule/src/SMovie.cpp
 MAINSRC := /root/app/src/cppmodule/src/main.cpp
-#TEST_SRC := main.cpp  # doctest用のテストファイル
+
 
 # =============================
 # 出力ファイル
 # =============================
 TARGET_CPP := esn.out
+TARGET_DEBUG_CPP := esn.debug
 TARGET_PY := esn$(EXT_SUFFIX)
-#TARGET_TEST := main.out
+
 
 # =============================
 # デフォルトターゲット（通常C++ビルド）
@@ -54,8 +57,14 @@ all: cpp
 # =============================
 # 通常C++ビルド
 # =============================
-cpp: $(SRC)
+cpp: $(SRC) $(ONNX_SRC) $(OPENCV_SRC)
 	$(CC) $(CFLAGS) $(INCLUDES) $(ONNX_INCLUDES) $(OPENCV_INCLUDES) $(SRC) $(ONNX_SRC) $(OPENCV_SRC) $(MAINSRC) $(CLINK) $(ONNX_CLINK) $(OPENCV_CLINK) -o $(TARGET_CPP)
+
+# =============================
+# デバッグC++ビルド
+# =============================
+cpp-debug: $(SRC) $(ONNX_SRC) $(OPENCV_SRC)
+	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) $(INCLUDES) $(ONNX_INCLUDES) $(OPENCV_INCLUDES) $(SRC) $(ONNX_SRC) $(OPENCV_SRC) $(MAINSRC) $(CLINK) $(ONNX_CLINK) $(OPENCV_CLINK) -o $(TARGET_DEBUG_CPP)
 
 # =============================
 # Python拡張モジュールビルド
@@ -67,9 +76,7 @@ python: $(SRC)
 # Doctestビルド＆実行
 # =============================
 test: $(SRC) $(TEST_SRC)
-#	$(CC) $(CFLAGS) $(TEST_CFLAGS) $(INCLUDES) $(TEST_INCLUDES) $(SRC) $(TEST_SRC) -o $(TARGET_TEST)
 	$(CC) $(CFLAGS) $(TEST_CFLAGS) $(INCLUDES) $(TEST_INCLUDES) $(SRC) -o $(TARGET_CPP)
-#	./$(TARGET_TEST)
 
 # =============================
 # クリーン
