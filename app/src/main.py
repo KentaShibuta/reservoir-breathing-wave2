@@ -332,7 +332,8 @@ def NARMA_TEST():
     plt.legend(bbox_to_anchor=(1, 1), loc='upper right')
     plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
 
-    plt.show()
+    #plt.show()
+    plt.savefig("narma_test.png")
 
 def WAVE_CLASSIFICATION_TEST():
     # 訓練データ，検証データの数
@@ -434,7 +435,8 @@ def WAVE_CLASSIFICATION_TEST():
     plt.legend(bbox_to_anchor=(0, 0), loc='lower left')
     plt.axvline(x=0, ymin=0, ymax=1, color='k', linestyle=':')
 
-    plt.show()
+    #plt.show()
+    plt.savefig("wave_classification.png")
 
 def SPOKENDIGIT_RECOGNITION_TEST():
     # 訓練データ，検証データの取得

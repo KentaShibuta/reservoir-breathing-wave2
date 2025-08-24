@@ -17,12 +17,17 @@
 #include "SCirculationBuffer.hpp"
 #include "SUtil.hpp"
 #include "SIOBinary.hpp"
+//#include "SOnnxRuntime.hpp"
+//#include "SMovie.hpp"
 
 #include <numeric>
 #include <filesystem>
 namespace fs = std::filesystem;
+
+#ifdef USE_PYBIND
 #include <matplotlibcpp.h>
 namespace plt = matplotlibcpp;
+#endif
 
 #ifdef USE_PYBIND
 #include <pybind11/pybind11.h>

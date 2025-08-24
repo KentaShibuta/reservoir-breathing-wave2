@@ -513,6 +513,7 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         }
     }
 
+#ifdef USE_PYBIND
     if (m_plot_x && plt_x != nullptr){
         auto plt_n_index = std::make_unique<std::vector<int>>(plt_n_max, 0);
         std::iota((*plt_n_index).begin(), (*plt_n_index).end(), 0);
@@ -534,6 +535,7 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         plt::save(plt_file_path);
         plt::close();
     }
+#endif
 
     std::cout << "Finish Predict" << std::endl;
 

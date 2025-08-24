@@ -5,8 +5,6 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
-#include <matplotlibcpp.h>
-namespace plt = matplotlibcpp;
 
 inline std::string currentDateTime() {
     std::time_t t = std::time(nullptr);
