@@ -1,26 +1,5 @@
-// --------------------------------------------------------------
-// main.hppをインクルードして、関数や型定義を利用可能にする
-// --------------------------------------------------------------
 #include "SOnnxRuntime.hpp"
-
-// --------------------------------------------------------------
-// main.hppで宣言した関数の定義
-// --------------------------------------------------------------
-// void setup() {
-//     std::cout << "Setup completed." << std::endl;
-// }
-
-// void run_logic() {
-//     std::cout << "Running program logic." << std::endl;
-// }
-
-// void cleanup() {
-//     std::cout << "Cleanup completed." << std::endl;
-// }
-
-// int calculate_sum(int a, int b) {
-//     return a + b;
-// }
+#include "SMovie.hpp"
 
 // --------------------------------------------------------------
 // プログラムのエントリーポイント
@@ -29,6 +8,7 @@ int main() {
     try {
         std::cout << "Program started." << std::endl;
 
+        std::cout << "Start onnx runtime sample." << std::endl;
         try {
             std::string model_path = "/root/app/model/vgg16_block5_conv3.onnx";
             const int64_t batch_size = 25;
@@ -72,6 +52,27 @@ int main() {
         } catch (const Ort::Exception& e) {
             std::cerr << "ONNX Runtime error: " << e.what() << std::endl;
         }
+
+        std::cout << "End onnx runtime sample." << std::endl;
+
+        std::cout << "Start opencv sample." << std::endl;
+
+        auto start = std::chrono::high_resolution_clock::now();
+
+        std::string fName = "/root/app/data/LINE_ALBUM_25621つくば🐶ランドよ_250707_1.mp4";
+
+        SMovie movie;
+        movie.Read(fName);
+        movie.CreateFrames();
+        movie.Stabilize();
+        movie.CreateOutputVideo();
+        movie.Release();
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_sec = end - start;
+        std::cout << "実行時間: " << elapsed_sec.count() << " 秒" << std::endl;
+
+        std::cout << "End opencv sample." << std::endl;
 
         std::cout << "Program finished." << std::endl;
 

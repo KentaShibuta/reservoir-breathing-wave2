@@ -30,7 +30,7 @@ void SMovie::Read(const std::string& fPath) {
     std::cout << "codec: " << m_fourccStr << std::endl;
 
     std::string fName = fs::path(fPath).stem().string();
-    fs::create_directories("../data/output");
+    fs::create_directories("/root/app/data/output");
     m_outputPath = "/root/app/data/output/" + fName + "_stabilization.mp4";
 }
 
@@ -371,6 +371,7 @@ void SMovie::Release() {
     m_outputVideo.release();
 }
 
+/*
 int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -388,3 +389,4 @@ int main() {
     std::cout << "実行時間: " << elapsed_sec.count() << " 秒" << std::endl;
     return 0;
 }
+*/
