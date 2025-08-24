@@ -23,7 +23,7 @@
       - ```
         docker compose up -d
         ```
-* RSNの学習と推論は、下記文献の付録にあるコードを参考にした
+* ESNの学習と推論は、下記文献の付録にあるコードを参考にした
    - リザバーコンピューティング: 時系列パターン認識のための高速機械学習の理論とハードウェア
       - https://www.morikita.co.jp/books/mid/085531
    - 学習と推論処理は、C++で書いたコードをpybind11で共有ライブラリ化したものに置き換えている
@@ -66,6 +66,9 @@
       - ```
         make python
         ```
+* Onnx Runtime
+   * [Apple silicon上にたてたDocker環境用](https://drive.google.com/drive/folders/1PsEwgDRhKbrsvCgXDvP9QCCAIYuomhUU?usp=sharing)
+   * その他の環境の場合は、ご利用の環境に合わせてOnnx Runtimeをビルドしてください。
 
 # License
 The source code is licensed [BSD 3-Clause License](LICENSE).  
@@ -121,3 +124,6 @@ This source code incorporates the following software.
 * streamlit-image-coordinates
    * https://github.com/blackary/streamlit-image-coordinates/
    * [MIT License](https://github.com/blackary/streamlit-image-coordinates/?tab=MIT-1-ov-file#readme)
+* ONNX Runtime
+   * https://onnxruntime.ai/
+   * [MIT License](https://github.com/microsoft/onnxruntime?tab=MIT-1-ov-file#readme)
