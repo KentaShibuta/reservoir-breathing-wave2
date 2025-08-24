@@ -682,6 +682,7 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
                     logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
                 }
             }
+            x_index++;
         }
 
         //size_t step = 0;
