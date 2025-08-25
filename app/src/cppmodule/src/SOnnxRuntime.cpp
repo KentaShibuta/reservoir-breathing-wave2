@@ -48,4 +48,13 @@ std::pair<std::vector<float>, std::vector<int64_t>> SOnnxRuntime::runInference(
 
     // データと形状をペアで返す
     return {std::vector<float>(output_data_ptr, output_data_ptr + output_tensor_size), output_shape};
+
+    // 💡 推論結果のfloatデータをdoubleに変換
+    //std::vector<double> output_data_double(output_tensor_size);
+    //for (size_t i = 0; i < output_tensor_size; ++i) {
+    //    output_data_double[i] = static_cast<double>(output_data_ptr[i]);
+    //}
+
+    // doubleに変換したデータと形状をペアで返す
+    //return {output_data_double, output_shape};
 }

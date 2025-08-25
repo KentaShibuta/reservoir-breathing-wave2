@@ -18,7 +18,6 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
     }
 }
 
-#ifdef USE_PYBIND
 ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale,
             bool classification, size_t average_window, float y_scale, float y_shift, bool reset_reservoir_state,
             bool two_class_weight, float positive_weight, float negative_weight, bool plot_x, size_t plot_n_max,
@@ -87,7 +86,6 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     reservoir.Init(N_x);
     m_vec_window.Init(average_window, N_x);
 }
-#endif
 
 ESN::ESN(){
     m_matlib = SMatrix2();
@@ -542,6 +540,83 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     return y;
 }
 #endif
+
+std::unique_ptr<std::vector<std::vector<float>>>ESN::Predict_cpp(std::vector<std::vector<float>>& u) {
+    N = u.size();
+    N_u = u[0].size();
+    vec_u.resize(N, std::vector<float>(N_u));
+    for (size_t i = 0; i < N; i++){
+        for (size_t j = 0; j < N_u; j++){
+            vec_u[i][j] = u[i][j];
+        }
+    }
+
+    std::cout << "N_x: " << N_x << std::endl;
+    std::cout << "N_u: " << N_u << std::endl;
+    std::cout << "Win size: " << vec_w_in.size() << ", " << vec_w_in[0].size() << std::endl;
+
+    std::cout << "Init y" << std::endl;
+    auto y = std::make_unique<std::vector<std::vector<float>>>(N, std::vector<float>(N_y, 0.0f));
+
+    std::cout << "Running Predict" << std::endl;
+    size_t n = 0;
+    float inv_average_window = 1.0f / m_average_window;
+
+    for (const auto& input : vec_u){
+        auto x_resevoir = reservoir.GetX();
+
+        int x_index = 0;
+        for (const auto &elem : *x_resevoir){
+            if (m_reset_reservoir_state && n % m_average_window == 0){
+                // あるデータと次のデータの境目で、内部状態xを初期化する
+                vec_x[x_index] = 0.0;
+            }else{
+                // あるデータと次のデータの境目で、内部状態をxを初期化しない
+                vec_x[x_index] = elem;
+            }
+            x_index++;
+        }
+
+        auto x_back = m_matlib.dot(vec_w_fb, m_y_prev);
+        if (m_reset_reservoir_state && n % m_average_window == 0){
+            for (size_t i = 0; i < N_x; i++){
+                (*x_back)[i] = 0.0f;
+            }
+        }
+
+        auto x_in = m_matlib.dot(vec_w_in, input);
+        auto w_dot_x = m_matlib.dot(vec_w, vec_x);
+
+        // リザバー状態ベクトルの更新
+        for (size_t i = 0; i < N_x; i++){
+            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i] + (*x_back)[i]);
+        }
+        reservoir.SetX(vec_x);
+
+        if (m_classification && m_average_window > 0){
+            m_vec_window.Update(vec_x);
+            m_vec_window.GetAverage(vec_x);
+        }
+
+        auto y_pred = m_matlib.dot(vec_w_out, vec_x);
+
+        for (size_t j = 0; j < N_y; j++){
+            // フィードバック用. 推論結果をバックアップ
+            m_y_prev[j] = (*y_pred)[j];
+
+            // yの値をスケール変換する e.g. -1～1の値を0～1へ変換する
+            (*y_pred)[j] = m_y_scale * (*y_pred)[j] + m_y_shift;
+
+            (*y)[n][j] = (*y_pred)[j];
+        }
+
+        n++;
+    }
+
+    std::cout << "Finish Predict" << std::endl;
+
+    return y;
+}
 
 #ifdef USE_PYBIND
 py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float beta){
@@ -1021,14 +1096,11 @@ void ESN::SetWout(py::array_t<float> w_out){
 }
 #endif
 
-#ifdef USE_PYBIND
 void ESN::SetWoutFromWeightFile(const std::string &file_path){
     std::cout << "Start SetWoutFromWeightFile" << std::endl;
 
     Read_bin(vec_w_out, file_path);
 }
-
-#endif
 
 #ifdef USE_PYBIND
 void ESN::SetWin(py::array_t<float> w_in){
@@ -1118,7 +1190,6 @@ py::array_t<float> ESN::GetWout(){
 }
 #endif
 
-#ifdef USE_PYBIND
 template <typename MatrixType, typename VectorType, typename T>
 std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x, T density, T rho) {
     auto connection_matrix = std::make_unique<std::vector<std::vector<T>>>(N_x, std::vector<T>(N_x));
@@ -1160,7 +1231,6 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
 
     return connection_matrix;
 }
-#endif
 
 #ifdef USE_PYBIND
 py::tuple ESN::GetInversePy2 (py::array_t<double> mat){

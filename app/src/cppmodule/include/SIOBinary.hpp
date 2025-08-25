@@ -94,4 +94,28 @@ inline void Read_scaler_bin(std::vector<double>& mean, std::vector<double>& scal
     std::cout << "読み込みました: " << input_file_name << std::endl;
 }
 
+// 推論結果を標準化する関数
+inline std::vector<float> Standardize_features(const std::vector<float>& features, const std::vector<double>& mean, const std::vector<double>& scale) {
+    if (mean.size() != scale.size() || features.size() % mean.size() != 0) {
+        throw std::invalid_argument("features, mean, and scaleのサイズが一致しません。");
+    }
+
+    size_t num_features = mean.size();
+    size_t num_samples = features.size() / num_features;
+    std::vector<float> standardized_features(features.size());
+
+    for (size_t i = 0; i < num_samples; ++i) {
+        for (size_t j = 0; j < num_features; ++j) {
+            size_t index = i * num_features + j;
+            if (scale[j] != 0.0f) {
+                standardized_features[index] = (features[index] - mean[j]) / scale[j];
+            } else {
+                // scaleが0の場合は元の値をそのまま使用
+                standardized_features[index] = features[index];
+            }
+        }
+    }
+    return standardized_features;
+}
+
 #endif // SIOBINARY_H_

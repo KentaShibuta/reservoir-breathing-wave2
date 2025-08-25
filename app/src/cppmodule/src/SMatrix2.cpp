@@ -3,7 +3,6 @@
 
 std::shared_ptr<spdlog::logger> SMatrix2::logger = nullptr;
 
-#ifdef USE_PYBIND
 template <typename T>
 std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(std::size_t row_size, std::size_t col_size, T scale) {
     //size_t rand_num = row_size * col_size;
@@ -55,7 +54,6 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
 }
 template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::generate_uniform_random<double> (size_t, size_t, double);
 template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::generate_uniform_random<float> (size_t, size_t, float);
-#endif
 
 template <typename T>
 std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_normal_distribution(std::size_t row_size, std::size_t col_size, T mean, T stddev) {
