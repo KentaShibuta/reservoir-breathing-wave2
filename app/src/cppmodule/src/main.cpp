@@ -8,6 +8,9 @@
 // プログラムのエントリーポイント
 // --------------------------------------------------------------
 int main() {
+    std::chrono::duration<double> esn_time;
+    std::chrono::duration<double> vgg16_time;
+    auto start = std::chrono::high_resolution_clock::now();
     // 1. 画像をクロップ
     std::string input_image_path = "/root/app/data/object_detection_test_data/LINE_ALBUM_ネコ写真資料２_250518_21.jpg";
     //std::string input_image_path = "/root/app/data/object_detection_test_data/LINE_ALBUM_ネコ写真資料２_250518_52.jpg";
@@ -78,8 +81,11 @@ int main() {
     std::vector<float> input_data = preprocess_batch_images(batch_images, input_dims);
 
     // 4. ONNX Runtimeで推論を実行
+    auto vgg16_start = std::chrono::high_resolution_clock::now();
     SOnnxRuntime onnx_runtime;
     std::pair<std::vector<float>, std::vector<int64_t>> result = onnx_runtime.runInference(model_path, input_data, input_dims);
+    auto vgg16_end = std::chrono::high_resolution_clock::now();
+    vgg16_time = vgg16_end - vgg16_start;
 
     // 5. 結果を標準化
     std::vector<double> mean;
@@ -136,12 +142,15 @@ int main() {
         float threshold = 0.55f;
         size_t data_length = 196;
 
+        auto esn_start = std::chrono::high_resolution_clock::now();
         ESN esn = ESN(512, 2, 700, density, input_scale, rho, leaking_rate, fb_scale,
                         false, 0, y_scale, y_shift, reset_reservoir_state,
                         false, 1.0f, 1.0f, false, 0,
                         false);
         esn.SetWoutFromWeightFile(esn_w_file_path);
         auto y = esn.Predict_cpp(reshaped);
+        auto esn_end = std::chrono::high_resolution_clock::now();
+        esn_time = esn_end - esn_start;
 
         std::vector<int> pred_test;
         int start = 0;
@@ -199,6 +208,16 @@ int main() {
         std::cerr << "エラー: " << e.what() << std::endl;
         return 1;
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // 経過時間を秒に変換
+    std::chrono::duration<double> elapsed = end - start;
+
+    std::cout << "全体の処理時間: " << elapsed.count() << " 秒" << std::endl;
+    std::cout << "ESNの処理時間: " << esn_time.count() << " 秒" << std::endl;
+    std::cout << "VGG16の処理時間: " << vgg16_time.count() << " 秒" << std::endl;
+    std::cout << "その他の処理時間: " << elapsed.count() - (esn_time.count() + vgg16_time.count()) << " 秒" << std::endl;
 
     return 0; // 正常終了
 }
