@@ -21,12 +21,11 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
 ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale,
             bool classification, size_t average_window, float y_scale, float y_shift, bool reset_reservoir_state,
             bool two_class_weight, float positive_weight, float negative_weight, bool plot_x, size_t plot_n_max,
-            bool write_log){
+            bool write_log)  : m_matlib(){
     std::string log_name = "cpp_esn_logger";
     init_logger(log_name);
     auto logger = spdlog::get(log_name);
 
-    m_matlib = SMatrix2();
     N_u = n_u;
     std::cout << "init N_u: " << N_u << std::endl;
     N_y = n_y;
@@ -87,8 +86,7 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     m_vec_window.Init(average_window, N_x);
 }
 
-ESN::ESN(){
-    m_matlib = SMatrix2();
+ESN::ESN() : m_matlib(){
 }
 
 #ifdef USE_PYBIND
