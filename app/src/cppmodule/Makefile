@@ -38,7 +38,7 @@ EXT_SUFFIX := $(shell python3-config --extension-suffix)
 SRC := /root/app/src/cppmodule/src/ESN.cpp /root/app/src/cppmodule/src/SMatrix.cpp /root/app/src/cppmodule/src/SMatrix2.cpp
 ONNX_SRC := /root/app/src/cppmodule/src/SOnnxRuntime.cpp
 OPENCV_SRC := /root/app/src/cppmodule/src/SMovie.cpp
-MAINSRC := /root/app/src/cppmodule/src/main.cpp
+MAINSRC := /root/app/src/cppmodule/src/ObjectDetection.cpp /root/app/src/cppmodule/src/main.cpp
 
 
 # =============================

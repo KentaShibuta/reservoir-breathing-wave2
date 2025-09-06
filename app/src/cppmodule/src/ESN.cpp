@@ -1210,7 +1210,7 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
         VectorType eigenvalues = solver.eigenvalues();
 
         for (size_t i = 0; i < (size_t)eigenvalues.size(); ++i) {
-            T absVal = std::fabs(eigenvalues[i]);  // 固有値の絶対値
+            T absVal = Eigen::numext::abs(eigenvalues[i]); // 固有値の絶対値
             if (absVal > sp_radius) {
                 sp_radius = absVal;
             }

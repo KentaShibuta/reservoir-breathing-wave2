@@ -8,7 +8,7 @@ std::pair<std::vector<float>, std::vector<int64_t>> SOnnxRuntime::runInference(
     // ORT 環境とセッションを作成
     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
     Ort::SessionOptions session_options;
-    //session_options.SetIntraOpNumThreads(1); // 11シングルスレッド
+    //session_options.SetIntraOpNumThreads(1); // シングルスレッド
     session_options.SetIntraOpNumThreads(std::thread::hardware_concurrency()); // マルチスレッド
 
     Ort::Session session(env, model_path.c_str(), session_options);

@@ -12,13 +12,10 @@
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include "SMatrix.hpp"
 #include "SMatrix2.hpp"
 #include "SCirculationBuffer.hpp"
 #include "SUtil.hpp"
 #include "SIOBinary.hpp"
-//#include "SOnnxRuntime.hpp"
-//#include "SMovie.hpp"
 
 #include <numeric>
 #include <filesystem>
