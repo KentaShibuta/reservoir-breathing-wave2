@@ -1679,6 +1679,7 @@ PYBIND11_MODULE(esn, m){
         .def("Train", &ESN::Train,
             py::arg("u"), py::arg("d"), py::arg("beta") = 0.0f)
         .def("GetWout", &ESN::GetWout)
-        .def("GetInversePy2", &ESN::GetInversePy2);
+        //.def("GetInversePy2", &ESN::GetInversePy2)
+        ;
 }
 #endif
