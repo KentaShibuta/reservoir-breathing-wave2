@@ -6,7 +6,7 @@
 #include <string>
 #include <numeric>
 #include <thread>
-#include <onnxruntime_cxx_api.h>
+#include "onnxruntime_cxx_api.h"
 
 
 class SOnnxRuntime{

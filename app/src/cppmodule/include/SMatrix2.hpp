@@ -5,7 +5,7 @@
 #include <vector>
 #include <cmath>
 #include <memory>
-#include <omp.h>
+//#include <omp.h>
 #include <random>
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
@@ -23,11 +23,12 @@ class SMatrix2{
     private:
         static std::shared_ptr<spdlog::logger> logger;
     public:
-        SMatrix2(){
+        SMatrix2(const std::string& logDir="/root/app/src/cppmodule/log"){
             if (!logger) {  // loggerがまだ初期化されていない場合のみ初期化
+                std::string logPath = logDir + "/log.txt";
                 try {
                     // ロガーを作成
-                    logger = spdlog::basic_logger_mt("Smat2_logger", "./log/log.txt");
+                    logger = spdlog::basic_logger_mt("Smat2_logger", logPath);
                     logger->set_level(spdlog::level::debug);
                 }
                 catch (const spdlog::spdlog_ex &e) {

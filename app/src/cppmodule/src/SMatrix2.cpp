@@ -142,7 +142,7 @@ std::unique_ptr<std::vector<std::vector<uint8_t>>> SMatrix2::generate_erdos_reny
     while (edge_count < m) {
         size_t i = dist(gen);
         size_t j = dist(gen);
-        
+
         // 自己ループを避け、重複エッジを作らない
         if (i != j && (*adjacency_matrix)[i][j] == 0) {
             (*adjacency_matrix)[i][j] = 1;
@@ -170,7 +170,7 @@ std::unique_ptr<std::vector<T>> SMatrix2::dot (const std::vector<std::vector<T>>
 
     //std::cout << "vector size of matrix dot vector: " << (*y).size() << std::endl;
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (size_t i = 0; i < mat.size(); i++) {
         for (size_t j = 0; j < mat[0].size(); j++) {
             (*y)[i] += mat[i][j] * vec[j];

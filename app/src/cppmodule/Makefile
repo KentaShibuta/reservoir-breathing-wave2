@@ -4,21 +4,27 @@ ARCH := $(shell uname -m)
 # =============================
 # コンパイラとオプション
 # =============================
-CC := g++
+#CC := g++
+CC := clang++
 
 ifeq ($(ARCH), x86_64)
-    CFLAGS := -O3 -Wall -std=c++23 -fopenmp
+    CFLAGS := -std=c++23 -fopenmp
     CLINK := -L/root/app/lib/spdlog/build/x86_x64 -lspdlog
 else ifeq ($(ARCH), aarch64)
-    CFLAGS := -O3 -Wall -std=c++23 -fopenmp
+    #CFLAGS := -O3 -Wall -std=c++23 -fopenmp
+	CFLAGS := -O3 -Wall -std=c++23 -stdlib=libc++
     CLINK := -L/root/app/lib/spdlog/build/aarch64 -lspdlog
 else
     $(error Unsupported architecture: $(ARCH))
 endif
 
-DEBUG_CFLAGS := -g
+RELEASE_CFLAGS := -O3
+DEBUG_CFLAGS := -g -Wall -O0
 
-ONNX_CLINK := -L/root/app/lib/onnxruntime/build/Linux/RelWithDebInfo -lonnxruntime -Xlinker -rpath -Xlinker /root/app/lib/onnxruntime/build/Linux/RelWithDebInfo
+ONNX_LIB_DIR := /root/app/lib/onnxruntime/build/Linux/Release
+#ONNX_CLINK := -L/root/app/lib/onnxruntime/build/Linux/RelWithDebInfo -lonnxruntime -Xlinker -rpath -Xlinker /root/app/lib/onnxruntime/build/Linux/RelWithDebInfo
+ONNX_CLINK := -L/root/app/lib/onnxruntime/build/Linux/Release -lonnxruntime -Xlinker -rpath -Xlinker /root/app/lib/onnxruntime/build/Linux/Release
+OPENCV_LIB_DIR := /root/app/lib/opencv-4.x/build/lib
 OPENCV_CLINK := -L/root/app/lib/opencv-4.x/build/lib -lopencv_core -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -lopencv_videoio -lopencv_video -Xlinker -rpath -Xlinker /root/app/lib/opencv-4.x/build/lib
 
 PY_CFLAGS :=  -lpython3.12 -shared -fPIC -fvisibility=hidden $(shell python3 -m pybind11 --includes) -DUSE_PYBIND
@@ -35,7 +41,8 @@ EXT_SUFFIX := $(shell python3-config --extension-suffix)
 # =============================
 # ソースファイル
 # =============================
-SRC := /root/app/src/cppmodule/src/ESN.cpp /root/app/src/cppmodule/src/SMatrix.cpp /root/app/src/cppmodule/src/SMatrix2.cpp
+#SRC := /root/app/src/cppmodule/src/ESN.cpp /root/app/src/cppmodule/src/SMatrix.cpp /root/app/src/cppmodule/src/SMatrix2.cpp
+SRC := /root/app/src/cppmodule/src/ESN.cpp /root/app/src/cppmodule/src/SMatrix2.cpp
 ONNX_SRC := /root/app/src/cppmodule/src/SOnnxRuntime.cpp
 OPENCV_SRC := /root/app/src/cppmodule/src/SMovie.cpp
 MAINSRC := /root/app/src/cppmodule/src/ObjectDetection.cpp /root/app/src/cppmodule/src/main.cpp
@@ -58,13 +65,15 @@ all: cpp
 # 通常C++ビルド
 # =============================
 cpp: $(SRC) $(ONNX_SRC) $(OPENCV_SRC)
-	$(CC) $(CFLAGS) $(INCLUDES) $(ONNX_INCLUDES) $(OPENCV_INCLUDES) $(SRC) $(ONNX_SRC) $(OPENCV_SRC) $(MAINSRC) $(CLINK) $(ONNX_CLINK) $(OPENCV_CLINK) -o $(TARGET_CPP)
+	$(CC) $(RELEASE_CFLAGS) $(CFLAGS) $(INCLUDES) $(ONNX_INCLUDES) $(OPENCV_INCLUDES) $(SRC) $(ONNX_SRC) $(OPENCV_SRC) $(MAINSRC) $(CLINK) $(ONNX_CLINK) $(OPENCV_CLINK) -o $(TARGET_CPP)
+
+	patchelf --set-rpath $(ONNX_LIB_DIR):$(OPENCV_LIB_DIR) $(TARGET_CPP)
 
 # =============================
 # デバッグC++ビルド
 # =============================
 cpp-debug: $(SRC) $(ONNX_SRC) $(OPENCV_SRC)
-	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) $(INCLUDES) $(ONNX_INCLUDES) $(OPENCV_INCLUDES) $(SRC) $(ONNX_SRC) $(OPENCV_SRC) $(MAINSRC) $(CLINK) $(ONNX_CLINK) $(OPENCV_CLINK) -o $(TARGET_DEBUG_CPP)
+	$(CC) $(DEBUG_CFLAGS) $(CFLAGS) $(DEBUG_CFLAGS) $(INCLUDES) $(ONNX_INCLUDES) $(OPENCV_INCLUDES) $(SRC) $(ONNX_SRC) $(OPENCV_SRC) $(MAINSRC) $(CLINK) $(ONNX_CLINK) $(OPENCV_CLINK) -o $(TARGET_DEBUG_CPP)
 
 # =============================
 # Python拡張モジュールビルド

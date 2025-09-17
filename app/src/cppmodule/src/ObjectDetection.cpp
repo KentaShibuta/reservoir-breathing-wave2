@@ -1,16 +1,17 @@
 #include "ObjectDetection.hpp"
 
-void ObjectDetection::Run(){
-        std::chrono::duration<double> esn_time;
+void ObjectDetection::Run(const std::string& inputImgDir, const std::string& outputImgDir, const std::string& modelDir, const std::string& inputImg, const std::string& scaler, const std::string& esnWeight, const std::string& cnnWeight, const std::string& logDir){
+    std::chrono::duration<double> esn_time;
     std::chrono::duration<double> vgg16_time;
     auto start = std::chrono::high_resolution_clock::now();
     // 1. 画像をクロップ
-    std::string input_image_path = "/root/app/data/object_detection_test_data/LINE_ALBUM_ネコ写真資料２_250518_21.jpg";
-    //std::string input_image_path = "/root/app/data/object_detection_test_data/LINE_ALBUM_ネコ写真資料２_250518_52.jpg";
-    std::string model_path = "/root/app/model/vgg16_block5_conv3.onnx";
+    std::string input_image_path = inputImgDir + "/" + inputImg;
+    std::string model_path = modelDir + "/" + cnnWeight;
     int crop_size = 800;
 
+    //std::cout << "before crop" << std::endl;
     cv::Mat cropped_image = get_crop_square(input_image_path, crop_size);
+    //std::cout << "after crop" << std::endl;
 
     if (!cropped_image.empty()) {
         std::cout << "Cropped image saved successfully to output_images directory." << std::endl;
@@ -36,6 +37,7 @@ void ObjectDetection::Run(){
     */
 
     // `step_size`の代わりに`patch_h`と`patch_w`をステップとして使用
+    std::cout << "start Image divided" << std::endl;
     std::vector<cv::Rect> rect_list;
     for (int y = 0; y <= h - patch_h; y += step_size) {
         for (int x = 0; x <= w - patch_w; x += step_size) {
@@ -74,17 +76,19 @@ void ObjectDetection::Run(){
     std::vector<float> input_data = preprocess_batch_images(batch_images, input_dims);
 
     // 4. ONNX Runtimeで推論を実行
+    //std::cout << "start onnx runtime" << std::endl;
     auto vgg16_start = std::chrono::high_resolution_clock::now();
     SOnnxRuntime onnx_runtime;
     std::pair<std::vector<float>, std::vector<int64_t>> result = onnx_runtime.runInference(model_path, input_data, input_dims);
     auto vgg16_end = std::chrono::high_resolution_clock::now();
     vgg16_time = vgg16_end - vgg16_start;
+    //std::cout << "end onnx runtime" << std::endl;
 
     // 5. 結果を標準化
     std::vector<double> mean;
     std::vector<double> scale;
-    std::string scale_file_path = "/root/app/model/20250824_070228_scale.dat"; // 適切なファイルパスに修正してください
-    std::string esn_w_file_path = "/root/app/model/20250824_070327_700_wout.dat";
+    std::string scale_file_path = modelDir + "/" + scaler;
+    std::string esn_w_file_path = modelDir + "/" + esnWeight;
 
     try {
         Read_scaler_bin(mean, scale, scale_file_path);
@@ -139,9 +143,31 @@ void ObjectDetection::Run(){
         ESN esn = ESN(512, 2, 700, density, input_scale, rho, leaking_rate, fb_scale,
                         false, 0, y_scale, y_shift, reset_reservoir_state,
                         false, 1.0f, 1.0f, false, 0,
-                        false);
+                        false, logDir);
         esn.SetWoutFromWeightFile(esn_w_file_path);
+        /*
+        std::ofstream ofs(logDir + "/" + "vgg16_data_dump.txt");
+        for (size_t i=0; i<reshaped.size(); i++){
+            for (size_t j=0; j<reshaped[0].size(); j++){
+                ofs << reshaped[i][j];
+                if (j + 1 < reshaped[0].size()) ofs << ", ";
+            }
+            // 改行
+            ofs << "\n";
+        }
+        */
         auto y = esn.Predict_cpp(reshaped);
+        /*
+        std::ofstream ofs(logDir + "/" + "esn_data_dump.txt");
+        for (size_t i=0; i<(*y).size(); i++){
+            for (size_t j=0; j<(*y)[0].size(); j++){
+                ofs << (*y)[i][j];
+                if (j + 1 < (*y)[0].size()) ofs << ", ";
+            }
+            // 改行
+            ofs << "\n";
+        }
+        */
         auto esn_end = std::chrono::high_resolution_clock::now();
         esn_time = esn_end - esn_start;
 
@@ -193,7 +219,7 @@ void ObjectDetection::Run(){
         }
 
         // 結果の画像をファイルに保存
-        std::string output_filename = "output_image.jpg";
+        std::string output_filename = outputImgDir + "/result_" + inputImg;
         cv::imwrite(output_filename, cropped_image);
         std::cout << "結果の画像を " << output_filename << " に保存しました。" << std::endl;
 

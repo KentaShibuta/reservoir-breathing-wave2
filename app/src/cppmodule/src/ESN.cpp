@@ -21,10 +21,11 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
 ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale,
             bool classification, size_t average_window, float y_scale, float y_shift, bool reset_reservoir_state,
             bool two_class_weight, float positive_weight, float negative_weight, bool plot_x, size_t plot_n_max,
-            bool write_log)  : m_matlib(){
-    std::string log_name = "cpp_esn_logger";
-    init_logger(log_name);
-    auto logger = spdlog::get(log_name);
+            bool write_log, const std::string& log_dir)  : m_matlib(log_dir){
+    std::string logName = "cpp_esn";
+    m_log_dir = log_dir;
+    init_logger(m_log_dir, logName);
+    auto logger = spdlog::get(logName);
 
     N_u = n_u;
     std::cout << "init N_u: " << N_u << std::endl;
@@ -269,7 +270,7 @@ void ESN::Print(){
 #ifdef USE_PYBIND
 py::array_t<float> ESN::Predict(py::array_t<float> u){
     std::string log_name = "cpp_esn_logger";
-    init_logger(log_name);
+    init_logger(m_log_dir, log_name);
     auto logger = spdlog::get(log_name);
 
     const auto &u_buf = u.request();
@@ -540,6 +541,37 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
 #endif
 
 std::unique_ptr<std::vector<std::vector<float>>>ESN::Predict_cpp(std::vector<std::vector<float>>& u) {
+    /*
+    std::ofstream ofs_w_in(m_log_dir + "/" + "esn_W_in_dump.txt");
+    for (size_t i=0; i<vec_w_in.size(); i++){
+        for (size_t j=0; j<vec_w_in[0].size(); j++){
+            ofs_w_in << vec_w_in[i][j];
+            if (j + 1 < vec_w_in[0].size()) ofs_w_in << ", ";
+        }
+        // 改行
+        ofs_w_in << "\n";
+    }
+
+    std::ofstream ofs_w(m_log_dir + "/" + "esn_W_dump.txt");
+    for (size_t i=0; i<vec_w.size(); i++){
+        for (size_t j=0; j<vec_w[0].size(); j++){
+            ofs_w << vec_w[i][j];
+            if (j + 1 < vec_w[0].size()) ofs_w << ", ";
+        }
+        // 改行
+        ofs_w << "\n";
+    }
+
+    std::ofstream ofs_w_out(m_log_dir + "/" + "esn_W_out_dump.txt");
+    for (size_t i=0; i<vec_w_out.size(); i++){
+        for (size_t j=0; j<vec_w_out[0].size(); j++){
+            ofs_w_out << vec_w_out[i][j];
+            if (j + 1 < vec_w_out[0].size()) ofs_w_out << ", ";
+        }
+        // 改行
+        ofs_w_out << "\n";
+    }
+    */
     N = u.size();
     N_u = u[0].size();
     vec_u.resize(N, std::vector<float>(N_u));
@@ -618,8 +650,8 @@ std::unique_ptr<std::vector<std::vector<float>>>ESN::Predict_cpp(std::vector<std
 
 #ifdef USE_PYBIND
 py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float beta){
-    std::string log_name = "cpp_esn_logger";
-    init_logger(log_name);
+    std::string log_name = "cpp_esn";
+    init_logger(m_log_dir, log_name);
     auto logger = spdlog::get(log_name);
 
     py::module_ np = py::module_::import("numpy");
@@ -1193,8 +1225,29 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
     auto connection_matrix = std::make_unique<std::vector<std::vector<T>>>(N_x, std::vector<T>(N_x));
     auto w1 = m_matlib.generate_erdos_renyi(N_x, density);
     auto w2 = m_matlib.generate_uniform_random(N_x, N_x, 1.0);
-
-    #pragma omp parallel for
+    /*
+    std::ofstream ofs_w1(m_log_dir + "/" + "esn_W1_dump.txt");
+    for (size_t i=0; i<(*w1).size(); i++){
+        for (size_t j=0; j<(*w1)[0].size(); j++){
+            ofs_w1 << static_cast<int>((*w1)[i][j]);
+            if (j + 1 < (*w1)[0].size()) ofs_w1 << ", ";
+        }
+        // 改行
+        ofs_w1 << "\n";
+    }
+    */
+    /*
+    std::ofstream ofs_w2(m_log_dir + "/" + "esn_W2_dump.txt");
+    for (size_t i=0; i<(*w2).size(); i++){
+        for (size_t j=0; j<(*w2)[0].size(); j++){
+            ofs_w2 << (*w2)[i][j];
+            if (j + 1 < (*w2)[0].size()) ofs_w2 << ", ";
+        }
+        // 改行
+        ofs_w2 << "\n";
+    }
+    */
+    //#pragma omp parallel for
     for (size_t i = 0; i < N_x; i++){
         for (size_t j = 0; j < N_x; j++){
             (*connection_matrix)[i][j] = (*w1)[i][j] * (*w2)[i][j];
@@ -1230,12 +1283,12 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
     return connection_matrix;
 }
 
-#ifdef USE_PYBIND
-py::tuple ESN::GetInversePy2 (py::array_t<double> mat){
-    SMatrix matlib = SMatrix();
-    return matlib.GetInversePy2(mat);
-}
-#endif
+//#ifdef USE_PYBIND
+//py::tuple ESN::GetInversePy2 (py::array_t<double> mat){
+//    SMatrix matlib = SMatrix();
+//    return matlib.GetInversePy2(mat);
+//}
+//#endif
 
 ////////////////
 // TEST CASES //
@@ -1607,14 +1660,14 @@ TEST_CASE("[test] circulation buffer"){
 PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
-        .def(py::init<size_t, size_t, size_t, float, float, float, float, float, bool, size_t, float, float, bool, bool, float, float, bool, size_t, bool>(),
+        .def(py::init<size_t, size_t, size_t, float, float, float, float, float, bool, size_t, float, float, bool, bool, float, float, bool, size_t, bool, const std::string&>(),
             py::arg("n_u"), py::arg("n_y"), py::arg("n_x"),
             py::arg("density"), py::arg("input_scale"), py::arg("rho"), py::arg("leaking_rate")=1.0f,
             py::arg("fb_scale")=0.0f, py::arg("classification")=false, py::arg("average_window")=0,
             py::arg("y_scale")=1.0f, py::arg("y_shift")=0.0f, py::arg("reset_reservoir_state")=false,
             py::arg("two_class_weight")=false, py::arg("positive_weight")=1.0f, py::arg("negative_weight")=1.0f,
             py::arg("plot_x")=false, py::arg("plot_n_max")=0,
-            py::arg("write_log")=false)
+            py::arg("write_log")=false, py::arg("log_dir")="/root/app/src/cppmodule/log")
         .def(py::init())
         .def("SetWout", &ESN::SetWout)
         .def("SetWoutFromWeightFile", &ESN::SetWoutFromWeightFile)

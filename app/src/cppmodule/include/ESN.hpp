@@ -7,7 +7,7 @@
 #include <cmath>
 #include <memory>
 #include <string>
-#include <omp.h>
+//#include <omp.h>
 #include <random>
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
@@ -79,6 +79,7 @@ class ESN{
         bool m_plot_x;                                          // xの時系列のグラフを保存するか
         size_t m_plot_n_max;                                    // xの時系列を記録する最大の時間ステップ
         bool m_write_log;                                       // ログ書き込みするか
+        std::string m_log_dir;                                  // ログファイルの保存ディレクトリ
 
         void set_Wout (const std::vector<std::vector<double>>& mat);
         Reservoir reservoir;
@@ -102,7 +103,7 @@ class ESN{
         ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate=1.0f, float fb_scale=0.0f,
                 bool classification=false, size_t average_window=0, float y_scale=1.0f, float y_shift=0.0f, bool reset_reservoir_state=false,
                 bool two_class_weight=false, float positive_weight=1.0f, float negative_weight=1.0f, bool plot_x=false, size_t plot_n_max=0,
-                bool write_log=false);
+                bool write_log=false, const std::string& log_dir="/root/app/src/cppmodule/log");
 #ifdef USE_PYBIND
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha);
 #endif

@@ -50,6 +50,7 @@ inline cv::Mat crop_square(const cv::Mat& image, cv::Point center, int size, boo
 // 指定したパスの画像を正方形に切り出す（Pythonのget_crop_squareに相当）
 inline cv::Mat get_crop_square(const std::string& input_img_path, int crop_size) {
     cv::Mat image = cv::imread(input_img_path);
+    //std::cout << "read:" << input_img_path << std::endl;
     if (image.empty()) {
         std::cerr << "Could not read the image: " << input_img_path << std::endl;
         return cv::Mat();
@@ -62,7 +63,9 @@ inline cv::Mat get_crop_square(const std::string& input_img_path, int crop_size)
     cv::Point center = detect_image_center(image);
     
     // 上記座標を中心に、正方形で切り出す
-    cv::Mat cropped = crop_square(image, center, crop_size, true, image_name); // `save`引数を`true`に変更
+    //std::cout << "before crop_square" << std::endl;
+    cv::Mat cropped = crop_square(image, center, crop_size, false, image_name); // `save`引数を`true`に変更
+    //std::cout << "after crop_square" << std::endl;
     
     return cropped;
 }
