@@ -58,7 +58,7 @@
       - 実行後にターミナルに表示される「peakNum: 」に続く値が呼吸数である
    - 学習と推論のデモ動画
       - https://youtu.be/aZmtaYk__Vk
-* C++で書き直したESNモジュールのビルド方法
+* C++で書き直したESNモジュールのビルド方法(Pythonから呼び出し可能なモジュールのビルド)
    - Dockerコンテナにアタッチした後に、下記コマンドを実行する
       - ```
         cd /root/app/src/cppmodule/
@@ -66,9 +66,27 @@
       - ```
         make python
         ```
+* ESNを用いた画像分類器によるObject Detection(C++プログラムから実行ファイルを作成)
+   - Dockerコンテナにアタッチした後に、下記コマンドを実行する
+      - ```
+        cd /root/app/src/cppmodule/
+        ```
+      - 入力画像のパスを"/root/app/src/cppmodule/src/main.cpp"の変数"inputImg"に代入します
+      - ```
+        make cpp
+        ```
+      - ```
+        ./esn.out
+        ```
+   - (画像分類器の訓練プログラムは、今後公開予定です。)
+   
 * Onnx Runtime
    * [Apple silicon上にたてたDocker環境用](https://drive.google.com/drive/folders/1PsEwgDRhKbrsvCgXDvP9QCCAIYuomhUU?usp=sharing)
    * その他の環境の場合は、ご利用の環境に合わせてOnnx Runtimeをビルドしてください。
+
+* libフォルダについて
+   * 当リポジトリにあるlibフォルダの中身は、Apple siliconのMac上に立てたDockerコンテナ上で動くようにビルドしています
+   * Windowsやその他の環境でご利用の場合は、お手数ですが、ご利用の環境に合わせてspdlog、OpenCV、ONNX Runtimeをビルドしてください
 
 # License
 The source code is licensed [BSD 3-Clause License](LICENSE).  
