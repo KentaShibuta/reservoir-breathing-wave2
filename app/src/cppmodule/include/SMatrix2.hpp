@@ -5,11 +5,12 @@
 #include <vector>
 #include <cmath>
 #include <memory>
-#include <omp.h>
+//#include <omp.h>
 #include <random>
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include "SUtil.hpp"
 
 #ifdef USE_PYBIND
 #include <pybind11/embed.h>
@@ -22,11 +23,12 @@ class SMatrix2{
     private:
         static std::shared_ptr<spdlog::logger> logger;
     public:
-        SMatrix2(){
+        SMatrix2(const std::string& logDir="/root/app/src/cppmodule/log"){
             if (!logger) {  // loggerがまだ初期化されていない場合のみ初期化
+                std::string logPath = logDir + "/log.txt";
                 try {
                     // ロガーを作成
-                    logger = spdlog::basic_logger_mt("Smat2_logger", "./log/log.txt");
+                    logger = spdlog::basic_logger_mt("Smat2_logger", logPath);
                     logger->set_level(spdlog::level::debug);
                 }
                 catch (const spdlog::spdlog_ex &e) {
@@ -34,10 +36,10 @@ class SMatrix2{
                 }
             }
         };
-#ifdef USE_PYBIND
+
         template <typename T>
         std::unique_ptr<std::vector<std::vector<T>>> generate_uniform_random(std::size_t row_size, std::size_t col_size, T scale);
-#endif
+
         template <typename T>
         std::unique_ptr<std::vector<std::vector<T>>> generate_normal_distribution(std::size_t row_size, std::size_t col_size, T mean, T stddev);
         template <typename MatrixType, typename T>

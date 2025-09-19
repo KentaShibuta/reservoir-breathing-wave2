@@ -111,6 +111,9 @@ class Movie:
     def GetTotalFrameNum(self):
         return self.totalFrameNum
 
+    def GetFPS(self):
+        return self.fps
+
     def Release(self):
         self.inputVideo.release()
         self.outputVideo.release()
@@ -142,7 +145,7 @@ class Movie:
 
         self.inputVideo.release()
     """
-    def SplitFrame(self, frame):
+    def SplitFrame(self, frame, trimFramNum = False, maxFramNum = -1):
         #outputDir = "../data/output/frame"
         #if not os.path.exists("../data/output/frame"):
         #    os.makedirs(outputDir)
@@ -153,6 +156,12 @@ class Movie:
         top, bottom, left, right = frame.get()
         width = right - left
         height = bottom - top
+
+        # 計算に使用するフレーム数の上限値を指定する場合
+        if trimFramNum == True:
+            if maxFramNum > 0 and maxFramNum < self.totalFrameNum:
+                self.totalFrameNum = maxFramNum
+
         for i in range(self.totalFrameNum):
             if i == 0 or i % 10 == 0 or i == self.totalFrameNum - 1:
                 print(f"progressCount: {i + 1} / {self.totalFrameNum}")

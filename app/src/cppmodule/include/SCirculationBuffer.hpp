@@ -1,3 +1,6 @@
+#ifndef SCIRCULATIONBUFFER_H_
+#define SCIRCULATIONBUFFER_H_
+
 #include <vector>
 
 class SCirculationBuffer{
@@ -55,3 +58,5 @@ class SCirculationBuffer{
             }
         }
 };
+
+#endif // SCIRCULATIONBUFFER_H_

@@ -7,14 +7,24 @@
 #include <cmath>
 #include <memory>
 #include <string>
-#include <omp.h>
+//#include <omp.h>
 #include <random>
 #include <Dense> // Eigen
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include "SMatrix.hpp"
 #include "SMatrix2.hpp"
 #include "SCirculationBuffer.hpp"
+#include "SUtil.hpp"
+#include "SIOBinary.hpp"
+
+#include <numeric>
+#include <filesystem>
+namespace fs = std::filesystem;
+
+#ifdef USE_PYBIND
+#include <matplotlibcpp.h>
+namespace plt = matplotlibcpp;
+#endif
 
 #ifdef USE_PYBIND
 #include <pybind11/pybind11.h>
@@ -62,6 +72,15 @@ class ESN{
         float m_y_inv_scale;                                    // yのスケールの逆数
         float m_y_shift;                                        // yのシフト
         std::vector<float> m_y_prev;                            // フィードバック用に出力を保存する変数
+        bool m_reset_reservoir_state;                           // 分類タスク時に、データ長ごとにリザバーの内部状態を初期化する
+        bool m_two_class_weight;                                // 2クラス分類用のクラス重みの有効/無効
+        float m_positive_weight;                                // positiveのクラス重み
+        float m_negative_weight;                                // negativeのクラス重み
+        bool m_plot_x;                                          // xの時系列のグラフを保存するか
+        size_t m_plot_n_max;                                    // xの時系列を記録する最大の時間ステップ
+        bool m_write_log;                                       // ログ書き込みするか
+        std::string m_log_dir;                                  // ログファイルの保存ディレクトリ
+
         void set_Wout (const std::vector<std::vector<double>>& mat);
         Reservoir reservoir;
         SCirculationBuffer m_vec_window;
@@ -81,8 +100,11 @@ class ESN{
         size_t N_y;
 
         ESN();
+        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate=1.0f, float fb_scale=0.0f,
+                bool classification=false, size_t average_window=0, float y_scale=1.0f, float y_shift=0.0f, bool reset_reservoir_state=false,
+                bool two_class_weight=false, float positive_weight=1.0f, float negative_weight=1.0f, bool plot_x=false, size_t plot_n_max=0,
+                bool write_log=false, const std::string& log_dir="/root/app/src/cppmodule/log");
 #ifdef USE_PYBIND
-        ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate=1.0f, float fb_scale=0.0f, bool classification=false, size_t average_window=0, float y_scale=1.0f, float y_shift=0.0f);
         ESN(py::array_t<float> u, py::array_t<float> w_in, py::array_t<float> w, py::array_t<float> w_out, py::array_t<float> x, float alpha);
 #endif
 
@@ -96,10 +118,13 @@ class ESN{
         void SetW(py::array_t<float> w);
         void SetWfb(py::array_t<float> w_fb);
         py::array_t<float> GetWout();
+#endif
+
+        std::unique_ptr<std::vector<std::vector<float>>> Predict_cpp(std::vector<std::vector<float>>& u);
+        void SetWoutFromWeightFile(const std::string &file_path);
 
         template <typename MatrixType, typename VectorType, typename T>
         std::unique_ptr<std::vector<std::vector<T>>> make_connection_mat(size_t N_x, T density, T rho);
-#endif
 
 #ifdef USE_PYBIND
         py::tuple GetInversePy2 (py::array_t<double> mat);

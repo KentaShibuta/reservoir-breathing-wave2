@@ -1,0 +1,6 @@
+.DS_Store
+/app/src/cppmodule/log
+/app/data/object_detection_test_data/result_*.png
+/app/data/object_detection_test_data/result_*.jpg
+/app/data/object_detection_test_data/result_*.jpeg
+/app/src/cppmodule/esn.out

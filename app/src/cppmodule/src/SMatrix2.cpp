@@ -3,7 +3,6 @@
 
 std::shared_ptr<spdlog::logger> SMatrix2::logger = nullptr;
 
-#ifdef USE_PYBIND
 template <typename T>
 std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(std::size_t row_size, std::size_t col_size, T scale) {
     //size_t rand_num = row_size * col_size;
@@ -11,7 +10,6 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
 
     uint_fast32_t seed = 0;
 
-    /*
     std::mt19937 gen(seed); // メルセンヌ・ツイスター法による生成器
     std::uniform_real_distribution<double> dist(-1.0 * scale, 1.0 * scale);
 
@@ -22,8 +20,8 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
             //check[i*col_size + j] = (*numbers)[i][j];
         }
     }
-    */
 
+    /*
     // numpyをインポート
     py::module_ np = py::module_::import("numpy");
     np.attr("random").attr("seed")(seed);
@@ -43,7 +41,7 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
             //check[i*col_size + j] = (*numbers)[i][j];
         }
     }
-
+    */
     /*
     std::sort(check.begin(), check.end());
     outputcsv1d(check);
@@ -56,7 +54,6 @@ std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_uniform_random(s
 }
 template std::unique_ptr<std::vector<std::vector<double>>> SMatrix2::generate_uniform_random<double> (size_t, size_t, double);
 template std::unique_ptr<std::vector<std::vector<float>>> SMatrix2::generate_uniform_random<float> (size_t, size_t, float);
-#endif
 
 template <typename T>
 std::unique_ptr<std::vector<std::vector<T>>> SMatrix2::generate_normal_distribution(std::size_t row_size, std::size_t col_size, T mean, T stddev) {
@@ -145,7 +142,7 @@ std::unique_ptr<std::vector<std::vector<uint8_t>>> SMatrix2::generate_erdos_reny
     while (edge_count < m) {
         size_t i = dist(gen);
         size_t j = dist(gen);
-        
+
         // 自己ループを避け、重複エッジを作らない
         if (i != j && (*adjacency_matrix)[i][j] == 0) {
             (*adjacency_matrix)[i][j] = 1;
@@ -173,7 +170,7 @@ std::unique_ptr<std::vector<T>> SMatrix2::dot (const std::vector<std::vector<T>>
 
     //std::cout << "vector size of matrix dot vector: " << (*y).size() << std::endl;
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (size_t i = 0; i < mat.size(); i++) {
         for (size_t j = 0; j < mat[0].size(); j++) {
             (*y)[i] += mat[i][j] * vec[j];

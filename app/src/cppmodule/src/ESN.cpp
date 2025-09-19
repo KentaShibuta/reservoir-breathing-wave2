@@ -18,13 +18,15 @@ void ESN::set_Wout (const std::vector<std::vector<double>>& mat){
     }
 }
 
-#ifdef USE_PYBIND
-ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale, bool classification, size_t average_window, float y_scale, float y_shift){
-    std::string log_name = "cpp_esn_logger";
-    init_logger(log_name);
-    auto logger = spdlog::get(log_name);
+ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, float rho, float leaking_rate, float fb_scale,
+            bool classification, size_t average_window, float y_scale, float y_shift, bool reset_reservoir_state,
+            bool two_class_weight, float positive_weight, float negative_weight, bool plot_x, size_t plot_n_max,
+            bool write_log, const std::string& log_dir)  : m_matlib(log_dir){
+    std::string logName = "cpp_esn";
+    m_log_dir = log_dir;
+    init_logger(m_log_dir, logName);
+    auto logger = spdlog::get(logName);
 
-    m_matlib = SMatrix2();
     N_u = n_u;
     std::cout << "init N_u: " << N_u << std::endl;
     N_y = n_y;
@@ -49,15 +51,43 @@ ESN::ESN(size_t n_u, size_t n_y, size_t n_x, float density, float input_scale, f
     m_y_scale = y_scale;
     m_y_inv_scale = 1.0f / y_scale;
     m_y_shift = y_shift;
+    m_reset_reservoir_state = reset_reservoir_state;
+    m_two_class_weight = two_class_weight;
+    m_positive_weight = positive_weight;
+    m_negative_weight = negative_weight;
+    m_plot_x = plot_x;
+    m_plot_n_max = plot_n_max;
+    m_write_log = write_log;
+
+    logger->debug("---[START] input parameters---");
+    logger->debug("N_u = {}", N_u);
+    logger->debug("N_y = {}", N_y);
+    logger->debug("N_x = {}", N_x);
+    logger->debug("density = {}", density);
+    logger->debug("input_scale = {}", input_scale);
+    logger->debug("rho = {}", rho);
+    logger->debug("leaking_rate = {}", a_alpha);
+    logger->debug("fb_scale = {}", fb_scale);
+    logger->debug("classification = {}", bool_to_string(m_classification));
+    logger->debug("average_window = {}", m_average_window);
+    logger->debug("y_scale = {}", m_y_scale);
+    logger->debug("y_shift = {}", m_y_shift);
+    logger->debug("reset_reservoir_state = {}", bool_to_string(m_reset_reservoir_state));
+    logger->debug("two_class_weight = {}", bool_to_string(m_two_class_weight));
+    logger->debug("positive_weight = {}", m_positive_weight);
+    logger->debug("negative_weight = {}", m_negative_weight);
+    logger->debug("plot_x = {}", bool_to_string(m_plot_x));
+    logger->debug("plot_n_max = {}", m_plot_n_max);
+    logger->debug("write_log = {}", bool_to_string(m_write_log));
+    logger->debug("---[END] input parameters---");
+
     auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f);
     m_y_prev = std::move(*y_prev);
     reservoir.Init(N_x);
     m_vec_window.Init(average_window, N_x);
 }
-#endif
 
-ESN::ESN(){
-    m_matlib = SMatrix2();
+ESN::ESN() : m_matlib(){
 }
 
 #ifdef USE_PYBIND
@@ -240,7 +270,7 @@ void ESN::Print(){
 #ifdef USE_PYBIND
 py::array_t<float> ESN::Predict(py::array_t<float> u){
     std::string log_name = "cpp_esn_logger";
-    init_logger(log_name);
+    init_logger(m_log_dir, log_name);
     auto logger = spdlog::get(log_name);
 
     const auto &u_buf = u.request();
@@ -287,12 +317,41 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
     std::cout << "Running Predict" << std::endl;
     size_t n = 0;
     float inv_average_window = 1.0f / m_average_window;
+
+    // 可視化用変数
+    int plt_n_max = m_plot_n_max == 0 ? N : m_plot_n_max;
+    auto plt_x = m_plot_x ? std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(plt_n_max, 0.0f)) : nullptr;
+
     //auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f); // フィードバック用
     for (const auto& input : vec_u){
         auto x_resevoir = reservoir.GetX();
+
+        if (m_plot_x && n == 0){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][0] = elem;
+                plt_nx_count++;
+            }
+        }
+
+
         int x_index = 0;
         for (const auto &elem : *x_resevoir){
-            vec_x[x_index] = elem;
+            if (m_reset_reservoir_state && n % m_average_window == 0){
+                // あるデータと次のデータの境目で、内部状態xを初期化する
+                vec_x[x_index] = 0.0;
+                if (m_write_log){
+                    logger->debug("reset reservoir state");
+                    logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+                }
+            }else{
+                // あるデータと次のデータの境目で、内部状態をxを初期化しない
+                vec_x[x_index] = elem;
+                if (m_write_log){
+                    logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+                }
+            }
             x_index++;
         }
 
@@ -319,15 +378,32 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, y_prev = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, y_prev = {}", n, log_tmp);
+            }
         }
+
         //auto x_back = m_matlib.dot(vec_w_fb, *y_prev);
         auto x_back = m_matlib.dot(vec_w_fb, m_y_prev);
-        if (n == 0 || (n >= 10 && n <= 12)){
-            logger->debug("n = {}, x_back[0] = {}", n, (*x_back)[0]);
-            logger->debug("n = {}, x_back[1] = {}", n, (*x_back)[1]);
-            logger->debug("n = {}, x_back[2] = {}", n, (*x_back)[2]);
+        if (m_reset_reservoir_state && n % m_average_window == 0){
+            for (size_t i = 0; i < N_x; i++){
+                (*x_back)[i] = 0.0f;
+
+                if (m_write_log){
+                    logger->debug("reset x_back");
+                    logger->debug("n = {}, x_back[{}] = {}", n, i, (*x_back)[i]);
+                }
+            }
         }
+
+        if (m_write_log){
+            if (n == 0 || (n >= 10 && n <= 12)){
+                logger->debug("n = {}, x_back[0] = {}", n, (*x_back)[0]);
+                logger->debug("n = {}, x_back[1] = {}", n, (*x_back)[1]);
+                logger->debug("n = {}, x_back[2] = {}", n, (*x_back)[2]);
+            }
+        }
+
         auto x_in = m_matlib.dot(vec_w_in, input);
         auto w_dot_x = m_matlib.dot(vec_w, vec_x);
 
@@ -337,21 +413,24 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
         }
         reservoir.SetX(vec_x);
 
-        if (n == 0 || (n >= 10 && n <= 12)){
-            logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
-            logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
-            logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+        if (m_write_log){
+            if (n == 0 || (n >= 10 && n <= 12)){
+                logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
+                logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
+                logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+            }
         }
 
         if (m_classification && m_average_window > 0){
             m_vec_window.Update(vec_x);
             m_vec_window.GetAverage(vec_x);
 
-
-            if (n == 0 || (n >= 10 && n <= 12)){
-                logger->debug("n = {}, x_average[0] = {}", n, vec_x[0]);
-                logger->debug("n = {}, x_average[1] = {}", n, vec_x[1]);
-                logger->debug("n = {}, x_average[2] = {}", n, vec_x[2]);
+            if (m_write_log){
+                if (n == 0 || (n >= 10 && n <= 12)){
+                    logger->debug("n = {}, x_average[0] = {}", n, vec_x[0]);
+                    logger->debug("n = {}, x_average[1] = {}", n, vec_x[1]);
+                    logger->debug("n = {}, x_average[2] = {}", n, vec_x[2]);
+                }
             }
         }
 
@@ -365,7 +444,9 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, d = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, d = {}", n, log_tmp);
+            }
         }
 
         if ((n >= 10 && n <= 12) || n == vec_u.size()-1){
@@ -377,7 +458,9 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, y = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, y = {}", n, log_tmp);
+            }
         }
 
         for (size_t j = 0; j < N_y; j++){
@@ -410,7 +493,151 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, y_scaled = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, y_scaled = {}", n, log_tmp);
+            }
+        }
+
+        n++;
+
+        if (m_plot_x && n < plt_n_max && plt_x != nullptr){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][n] = elem;
+                plt_nx_count++;
+            }
+        }
+    }
+
+#ifdef USE_PYBIND
+    if (m_plot_x && plt_x != nullptr){
+        auto plt_n_index = std::make_unique<std::vector<int>>(plt_n_max, 0);
+        std::iota((*plt_n_index).begin(), (*plt_n_index).end(), 0);
+
+        plt::plot(*plt_n_index, (*plt_x)[0]);
+
+        std::string plt_file_name = currentDateTime() + "_predict_x.png";
+
+        fs::path dir = "/root/app/data/plot";
+        // フォルダが存在しない場合は作成
+        if (!fs::exists(dir)) {
+            fs::create_directories(dir);
+        }
+        // フォルダパスにファイル名を追加
+        fs::path file_path = dir / plt_file_name;
+        // std::string に変換
+        std::string plt_file_path = file_path.string();
+
+        plt::save(plt_file_path);
+        plt::close();
+    }
+#endif
+
+    std::cout << "Finish Predict" << std::endl;
+
+    return y;
+}
+#endif
+
+std::unique_ptr<std::vector<std::vector<float>>>ESN::Predict_cpp(std::vector<std::vector<float>>& u) {
+    /*
+    std::ofstream ofs_w_in(m_log_dir + "/" + "esn_W_in_dump.txt");
+    for (size_t i=0; i<vec_w_in.size(); i++){
+        for (size_t j=0; j<vec_w_in[0].size(); j++){
+            ofs_w_in << vec_w_in[i][j];
+            if (j + 1 < vec_w_in[0].size()) ofs_w_in << ", ";
+        }
+        // 改行
+        ofs_w_in << "\n";
+    }
+
+    std::ofstream ofs_w(m_log_dir + "/" + "esn_W_dump.txt");
+    for (size_t i=0; i<vec_w.size(); i++){
+        for (size_t j=0; j<vec_w[0].size(); j++){
+            ofs_w << vec_w[i][j];
+            if (j + 1 < vec_w[0].size()) ofs_w << ", ";
+        }
+        // 改行
+        ofs_w << "\n";
+    }
+
+    std::ofstream ofs_w_out(m_log_dir + "/" + "esn_W_out_dump.txt");
+    for (size_t i=0; i<vec_w_out.size(); i++){
+        for (size_t j=0; j<vec_w_out[0].size(); j++){
+            ofs_w_out << vec_w_out[i][j];
+            if (j + 1 < vec_w_out[0].size()) ofs_w_out << ", ";
+        }
+        // 改行
+        ofs_w_out << "\n";
+    }
+    */
+    N = u.size();
+    N_u = u[0].size();
+    vec_u.resize(N, std::vector<float>(N_u));
+    for (size_t i = 0; i < N; i++){
+        for (size_t j = 0; j < N_u; j++){
+            vec_u[i][j] = u[i][j];
+        }
+    }
+
+    std::cout << "N_x: " << N_x << std::endl;
+    std::cout << "N_u: " << N_u << std::endl;
+    std::cout << "Win size: " << vec_w_in.size() << ", " << vec_w_in[0].size() << std::endl;
+
+    std::cout << "Init y" << std::endl;
+    auto y = std::make_unique<std::vector<std::vector<float>>>(N, std::vector<float>(N_y, 0.0f));
+
+    std::cout << "Running Predict" << std::endl;
+    size_t n = 0;
+    float inv_average_window = 1.0f / m_average_window;
+
+    for (const auto& input : vec_u){
+        auto x_resevoir = reservoir.GetX();
+
+        int x_index = 0;
+        for (const auto &elem : *x_resevoir){
+            if (m_reset_reservoir_state && n % m_average_window == 0){
+                // あるデータと次のデータの境目で、内部状態xを初期化する
+                vec_x[x_index] = 0.0;
+            }else{
+                // あるデータと次のデータの境目で、内部状態をxを初期化しない
+                vec_x[x_index] = elem;
+            }
+            x_index++;
+        }
+
+        auto x_back = m_matlib.dot(vec_w_fb, m_y_prev);
+        if (m_reset_reservoir_state && n % m_average_window == 0){
+            for (size_t i = 0; i < N_x; i++){
+                (*x_back)[i] = 0.0f;
+            }
+        }
+
+        auto x_in = m_matlib.dot(vec_w_in, input);
+        auto w_dot_x = m_matlib.dot(vec_w, vec_x);
+
+        // リザバー状態ベクトルの更新
+        for (size_t i = 0; i < N_x; i++){
+            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i] + (*x_back)[i]);
+        }
+        reservoir.SetX(vec_x);
+
+        if (m_classification && m_average_window > 0){
+            m_vec_window.Update(vec_x);
+            m_vec_window.GetAverage(vec_x);
+        }
+
+        auto y_pred = m_matlib.dot(vec_w_out, vec_x);
+
+        for (size_t j = 0; j < N_y; j++){
+            // フィードバック用. 推論結果をバックアップ
+            m_y_prev[j] = (*y_pred)[j];
+
+            // yの値をスケール変換する e.g. -1～1の値を0～1へ変換する
+            (*y_pred)[j] = m_y_scale * (*y_pred)[j] + m_y_shift;
+
+            (*y)[n][j] = (*y_pred)[j];
         }
 
         n++;
@@ -420,12 +647,11 @@ py::array_t<float> ESN::Predict(py::array_t<float> u){
 
     return y;
 }
-#endif
 
 #ifdef USE_PYBIND
 py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float beta){
-    std::string log_name = "cpp_esn_logger";
-    init_logger(log_name);
+    std::string log_name = "cpp_esn";
+    init_logger(m_log_dir, log_name);
     auto logger = spdlog::get(log_name);
 
     py::module_ np = py::module_::import("numpy");
@@ -483,11 +709,24 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
     auto vec_d = std::make_unique<std::vector<std::vector<float>>>(N, std::vector<float>(N_y, 0.0));
     if (d_ndim == 2 && (size_t)d_shape[0] == N && (size_t)d_shape[1] == N_y) {
         std::cout << "vec_d shape: (" << d_shape[0] << ", " << d_shape[1] << ")" << std::endl;
+        if (m_write_log){
+            logger->debug("debugging d start");
+        }
+
         for (size_t i = 0; i < N; i++){
             for (size_t j = 0; j < N_y; j++){
                 // yの値をスケール逆変換する e.g. 0～1の値を-1～1へ変換する
                 (*vec_d)[i][j] = m_y_inv_scale * (ptr_d[i * N_y + j] - m_y_shift);
             }
+            if ((*vec_d)[i][0] == -1.0f && (*vec_d)[i][1] == 1.0f){
+                // logger->debug("positive: n = {}, d = ({}, {})", i, (*vec_d)[i][0], (*vec_d)[i][1]);
+            }
+            else{
+                // logger->debug("negative: n = {}, d = ({}, {})", i, (*vec_d)[i][0], (*vec_d)[i][1]);
+            }
+        }
+        if (m_write_log){
+            logger->debug("debugging d end");
         }
     } else {
         std::cout << "d: shape error. ndim = " << d_ndim << ", shape[0]=" << d_shape[0] << std::endl;
@@ -515,11 +754,39 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
     //std::cout << "vec_u_type: " << typeid(vec_u).name() << std::endl;
     float inv_average_window = 1.0f / m_average_window;
     //auto y_prev = std::make_unique<std::vector<float>>(N_y, 0.0f); // フィードバック用
+
+    // 可視化用変数
+    int plt_n_max = m_plot_n_max == 0 ? N : m_plot_n_max;
+    auto plt_x = m_plot_x ? std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(plt_n_max, 0.0f)) : nullptr;
+
     for (const auto& input : vec_u){
         auto x_resevoir = reservoir.GetX();
+
+        if (m_plot_x && n == 0){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][0] = elem;
+                plt_nx_count++;
+            }
+        }
+
         int x_index = 0;
         for (const auto &elem : *x_resevoir){
-            vec_x[x_index] = elem;
+            if (m_reset_reservoir_state && n % m_average_window == 0){
+                // あるデータと次のデータの境目で、内部状態xを初期化する
+                vec_x[x_index] = 0.0;
+                if (m_write_log){
+                    logger->debug("reset reservoir state");
+                    logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+                }
+            }else{
+                // あるデータと次のデータの境目で、内部状態をxを初期化しない
+                vec_x[x_index] = elem;
+                if (m_write_log){
+                    logger->debug("n = {}, x[{}] = {}", n, x_index, vec_x[x_index]);
+                }
+            }
             x_index++;
         }
 
@@ -550,28 +817,39 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, y_prev = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, y_prev = {}", n, log_tmp);
+            }
         }
         //auto x_back = m_matlib.dot(vec_w_fb, *y_prev);
         auto x_back = m_matlib.dot(vec_w_fb, m_y_prev); // (N_x,N_y) * (N_y,1)
-        if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-            logger->debug("n = {}, x_back[0] = {}", n, (*x_back)[0]);
-            logger->debug("n = {}, x_back[1] = {}", n, (*x_back)[1]);
-            logger->debug("n = {}, x_back[2] = {}", n, (*x_back)[2]);
+
+        if (m_write_log){
+            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                logger->debug("n = {}, x_back[0] = {}", n, (*x_back)[0]);
+                logger->debug("n = {}, x_back[1] = {}", n, (*x_back)[1]);
+                logger->debug("n = {}, x_back[2] = {}", n, (*x_back)[2]);
+            }
         }
+
         auto x_in = m_matlib.dot(vec_w_in, input); // (N_x,N_u) * (N_u,1)
-        if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-            logger->debug("n = {}, x_in[0] = {}", n, (*x_in)[0]);
-            logger->debug("n = {}, x_in[1] = {}", n, (*x_in)[1]);
-            logger->debug("n = {}, x_in[2] = {}", n, (*x_in)[2]);
+
+        if (m_write_log){
+            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                logger->debug("n = {}, x_in[0] = {}", n, (*x_in)[0]);
+                logger->debug("n = {}, x_in[1] = {}", n, (*x_in)[1]);
+                logger->debug("n = {}, x_in[2] = {}", n, (*x_in)[2]);
+            }
         }
 
         auto w_dot_x = m_matlib.dot(vec_w, vec_x); // (N_x,N_x) * (N_x,1)
 
-        if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-            logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
-            logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
-            logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+        if (m_write_log){
+            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
+                logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
+                logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+            }
         }
 
         // リザバー状態ベクトルの更新
@@ -581,27 +859,33 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
         }
         reservoir.SetX(vec_x);
 
-        if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-            logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
-            logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
-            logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+        if (m_write_log){
+            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
+                logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
+                logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+            }
         }
 
         if (m_classification && m_average_window > 0){
             m_vec_window.Update(vec_x);
             m_vec_window.GetAverage(vec_x);
 
-            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-                logger->debug("n = {}, x_average[0] = {}", n, vec_x[0]);
-                logger->debug("n = {}, x_average[1] = {}", n, vec_x[1]);
-                logger->debug("n = {}, x_average[2] = {}", n, vec_x[2]);
+            if (m_write_log){
+                if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                    logger->debug("n = {}, x_average[0] = {}", n, vec_x[0]);
+                    logger->debug("n = {}, x_average[1] = {}", n, vec_x[1]);
+                    logger->debug("n = {}, x_average[2] = {}", n, vec_x[2]);
+                }
             }
         }
 
-        if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-            logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
-            logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
-            logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+        if (m_write_log){
+            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
+                logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
+                logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+            }
         }
 
         // 学習器
@@ -609,22 +893,45 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
             // optimizerの更新
             for (size_t i = 0; i < N_x; i++){
                 for (size_t j = 0; j < N_x; j++){
-                    (*X_XT)[i][j] += static_cast<double>(vec_x[i] * vec_x[j]);
-                    /*
-                    if(n == 4 || n == 1497){
-                        file_logger->debug("X_XT[{}][{}] = {}", i, j, (*X_XT)[i][j]);
+                    if (m_two_class_weight){
+                        // 2クラス分類のクラス重みを有効化
+                        float class_weight = 0.0f;
+                        if ((*vec_d)[n][0] == 1.0f && (*vec_d)[n][1] == -1.0f) {
+                            // negative
+                            class_weight = m_negative_weight;
+                            //logger->debug("negative: n = {}, d = ({}, {}), class_weight = {}", n, (*vec_d)[n][0], (*vec_d)[n][1], class_weight);
+                        }else{
+                            // positive
+                            class_weight = m_positive_weight;
+                            //logger->debug("positive: n = {}, d = ({}, {}), class_weight = {}", n, (*vec_d)[n][0], (*vec_d)[n][1], class_weight);
+                        }
+                        (*X_XT)[i][j] += static_cast<double>(vec_x[i] * vec_x[j] * class_weight);
+                    }else{
+                        (*X_XT)[i][j] += static_cast<double>(vec_x[i] * vec_x[j]);
                     }
-                    */
+
                 }
             }
             for (size_t i = 0; i < N_y; i++){
                 for (size_t j = 0; j < N_x; j++){
-                    (*D_XT)[i][j] += (*vec_d)[n][i] * vec_x[j];
-                    /*
-                    if(n == 4 || n == 1497){
-                        file_logger->debug("D_XT[{}][{}] = {}", i, j, (*D_XT)[i][j]);
+                    if (m_two_class_weight){
+                        // 2クラス分類のクラス重みを有効化
+                        float class_weight = 0.0f;
+                        if ((*vec_d)[n][0] == 1.0f && (*vec_d)[n][1] == -1.0f) {
+                            // negative
+                            class_weight = m_negative_weight;
+                            //logger->debug("negative: n = {}, d = ({}, {}), class_weight = {}", n, (*vec_d)[n][0], (*vec_d)[n][1], class_weight);
+                        }else{
+                            // positive
+                            class_weight = m_positive_weight;
+                            //logger->debug("positive: n = {}, d = ({}, {}), class_weight = {}", n, (*vec_d)[n][0], (*vec_d)[n][1], class_weight);
+                        }
+                        (*D_XT)[i][j] += (*vec_d)[n][i] * vec_x[j] * class_weight;
+                    }else{
+                        (*D_XT)[i][j] += (*vec_d)[n][i] * vec_x[j];
                     }
-                    */
+
+
                 }
             }
 
@@ -638,10 +945,12 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
             */
         }
 
-        if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-            logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
-            logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
-            logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+        if (m_write_log){
+            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
+                logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
+                logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+            }
         }
 
         auto y_pred = m_matlib.dot(vec_w_out, vec_x);
@@ -654,7 +963,9 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, y = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, y = {}", n, log_tmp);
+            }
         }
 
         for (size_t j = 0; j < N_y; j++){
@@ -676,7 +987,9 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, y_scaled = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, y_scaled = {}", n, log_tmp);
+            }
         }
 
         if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
@@ -688,16 +1001,51 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
             }
             log_tmp += "]";
 
-            logger->debug("n = {}, d = {}", n, log_tmp);
+            if (m_write_log){
+                logger->debug("n = {}, d = {}", n, log_tmp);
+            }
         }
 
-        if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
-            logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
-            logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
-            logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+        if (m_write_log){
+            if (n <= 3 || (n >= 10 && n <= 12) || n == vec_u.size()-1){
+                logger->debug("n = {}, x[0] = {}", n, vec_x[0]);
+                logger->debug("n = {}, x[1] = {}", n, vec_x[1]);
+                logger->debug("n = {}, x[2] = {}", n, vec_x[2]);
+            }
         }
 
         n++;
+
+        if (m_plot_x && n < plt_n_max && plt_x != nullptr){
+            // nが0の時点での値を格納
+            int plt_nx_count = 0;
+            for (const auto &elem : *x_resevoir){
+                (*plt_x)[plt_nx_count][n] = elem;
+                plt_nx_count++;
+            }
+        }
+    }
+
+    if (m_plot_x && plt_x != nullptr){
+        auto plt_n_index = std::make_unique<std::vector<int>>(plt_n_max, 0);
+        std::iota((*plt_n_index).begin(), (*plt_n_index).end(), 0);
+
+        plt::plot(*plt_n_index, (*plt_x)[0]);
+
+        std::string plt_file_name = currentDateTime() + "_train_x.png";
+
+        fs::path dir = "/root/app/data/plot";
+        // フォルダが存在しない場合は作成
+        if (!fs::exists(dir)) {
+            fs::create_directories(dir);
+        }
+        // フォルダパスにファイル名を追加
+        fs::path file_path = dir / plt_file_name;
+        // std::string に変換
+        std::string plt_file_path = file_path.string();
+
+        plt::save(plt_file_path);
+        plt::close();
     }
 
     std::cout << "start updating Wout" << std::endl;
@@ -705,7 +1053,10 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
     // 学習済みの出力結合重み行列を設定
     // X_XTの疑似逆行列を求める
     if (beta > 0.0){
-        logger->debug("beta = {}", beta);
+        if (m_write_log){
+            logger->debug("beta = {}", beta);
+        }
+
         for (size_t i = 0; i < N_x; i++){
             // 対角成分にのみ正則化項を加算
             (*X_XT)[i][i] += beta;
@@ -713,9 +1064,9 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
     }
 
     //auto inv_X_XT = m_matlib.GetInverseSVD<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
-    auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, true); //pinv
+    //auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, true); //pinv
     //auto inv_X_XT = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, false); //inv
-    //auto inv_X_XT = m_matlib.GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
+    auto inv_X_XT = m_matlib.GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
 
     //auto inv_X = m_matlib.GetInverseNumpy<Eigen::MatrixXd, Eigen::VectorXd, double>(*X, true); //pinv
 
@@ -738,7 +1089,9 @@ py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float 
     std::cout << "cpp Wout" << std::endl;
     for (size_t i = 0; i < N_x; i++){
         //std::cout << (*mul)[0][i] << " ";
-        logger->debug("mul[0][{}] = {}", i, (*mul)[0][i]);
+        if (m_write_log){
+            logger->debug("mul[0][{}] = {}", i, (*mul)[0][i]);
+        }
     }
     std::cout << std::endl;
 
@@ -772,6 +1125,12 @@ void ESN::SetWout(py::array_t<float> w_out){
     }
 }
 #endif
+
+void ESN::SetWoutFromWeightFile(const std::string &file_path){
+    std::cout << "Start SetWoutFromWeightFile" << std::endl;
+
+    Read_bin(vec_w_out, file_path);
+}
 
 #ifdef USE_PYBIND
 void ESN::SetWin(py::array_t<float> w_in){
@@ -861,14 +1220,34 @@ py::array_t<float> ESN::GetWout(){
 }
 #endif
 
-#ifdef USE_PYBIND
 template <typename MatrixType, typename VectorType, typename T>
 std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x, T density, T rho) {
     auto connection_matrix = std::make_unique<std::vector<std::vector<T>>>(N_x, std::vector<T>(N_x));
     auto w1 = m_matlib.generate_erdos_renyi(N_x, density);
     auto w2 = m_matlib.generate_uniform_random(N_x, N_x, 1.0);
-
-    #pragma omp parallel for
+    /*
+    std::ofstream ofs_w1(m_log_dir + "/" + "esn_W1_dump.txt");
+    for (size_t i=0; i<(*w1).size(); i++){
+        for (size_t j=0; j<(*w1)[0].size(); j++){
+            ofs_w1 << static_cast<int>((*w1)[i][j]);
+            if (j + 1 < (*w1)[0].size()) ofs_w1 << ", ";
+        }
+        // 改行
+        ofs_w1 << "\n";
+    }
+    */
+    /*
+    std::ofstream ofs_w2(m_log_dir + "/" + "esn_W2_dump.txt");
+    for (size_t i=0; i<(*w2).size(); i++){
+        for (size_t j=0; j<(*w2)[0].size(); j++){
+            ofs_w2 << (*w2)[i][j];
+            if (j + 1 < (*w2)[0].size()) ofs_w2 << ", ";
+        }
+        // 改行
+        ofs_w2 << "\n";
+    }
+    */
+    //#pragma omp parallel for
     for (size_t i = 0; i < N_x; i++){
         for (size_t j = 0; j < N_x; j++){
             (*connection_matrix)[i][j] = (*w1)[i][j] * (*w2)[i][j];
@@ -884,7 +1263,7 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
         VectorType eigenvalues = solver.eigenvalues();
 
         for (size_t i = 0; i < (size_t)eigenvalues.size(); ++i) {
-            T absVal = std::fabs(eigenvalues[i]);  // 固有値の絶対値
+            T absVal = Eigen::numext::abs(eigenvalues[i]); // 固有値の絶対値
             if (absVal > sp_radius) {
                 sp_radius = absVal;
             }
@@ -903,14 +1282,13 @@ std::unique_ptr<std::vector<std::vector<T>>> ESN::make_connection_mat(size_t N_x
 
     return connection_matrix;
 }
-#endif
 
-#ifdef USE_PYBIND
-py::tuple ESN::GetInversePy2 (py::array_t<double> mat){
-    SMatrix matlib = SMatrix();
-    return matlib.GetInversePy2(mat);
-}
-#endif
+//#ifdef USE_PYBIND
+//py::tuple ESN::GetInversePy2 (py::array_t<double> mat){
+//    SMatrix matlib = SMatrix();
+//    return matlib.GetInversePy2(mat);
+//}
+//#endif
 
 ////////////////
 // TEST CASES //
@@ -1282,13 +1660,17 @@ TEST_CASE("[test] circulation buffer"){
 PYBIND11_MODULE(esn, m){
     py::class_<ESN>(m, "ESN", "ESN class made by pybind11")
         .def(py::init<py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, py::array_t<float>, float>())
-        .def(py::init<size_t, size_t, size_t, float, float, float, float, float, bool, size_t, float, float>(),
+        .def(py::init<size_t, size_t, size_t, float, float, float, float, float, bool, size_t, float, float, bool, bool, float, float, bool, size_t, bool, const std::string&>(),
             py::arg("n_u"), py::arg("n_y"), py::arg("n_x"),
             py::arg("density"), py::arg("input_scale"), py::arg("rho"), py::arg("leaking_rate")=1.0f,
             py::arg("fb_scale")=0.0f, py::arg("classification")=false, py::arg("average_window")=0,
-            py::arg("y_scale")=1.0f, py::arg("y_shift")=0.0f)
+            py::arg("y_scale")=1.0f, py::arg("y_shift")=0.0f, py::arg("reset_reservoir_state")=false,
+            py::arg("two_class_weight")=false, py::arg("positive_weight")=1.0f, py::arg("negative_weight")=1.0f,
+            py::arg("plot_x")=false, py::arg("plot_n_max")=0,
+            py::arg("write_log")=false, py::arg("log_dir")="/root/app/src/cppmodule/log")
         .def(py::init())
         .def("SetWout", &ESN::SetWout)
+        .def("SetWoutFromWeightFile", &ESN::SetWoutFromWeightFile)
         .def("SetWin", &ESN::SetWin)
         .def("SetW", &ESN::SetW)
         .def("SetWfb", &ESN::SetW)
@@ -1297,6 +1679,7 @@ PYBIND11_MODULE(esn, m){
         .def("Train", &ESN::Train,
             py::arg("u"), py::arg("d"), py::arg("beta") = 0.0f)
         .def("GetWout", &ESN::GetWout)
-        .def("GetInversePy2", &ESN::GetInversePy2);
+        //.def("GetInversePy2", &ESN::GetInversePy2)
+        ;
 }
 #endif
