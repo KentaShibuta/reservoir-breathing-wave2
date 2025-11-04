@@ -120,6 +120,7 @@ class ESN{
         py::array_t<float> GetWout();
 #endif
 
+        std::unique_ptr<std::vector<std::vector<float>>> Train_cpp(std::vector<std::vector<float>>& u, std::vector<std::vector<float>>& d, float beta=0.0f);
         std::unique_ptr<std::vector<std::vector<float>>> Predict_cpp(std::vector<std::vector<float>>& u);
         void SetWoutFromWeightFile(const std::string &file_path);
 

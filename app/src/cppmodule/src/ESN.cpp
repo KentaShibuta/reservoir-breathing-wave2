@@ -648,6 +648,169 @@ std::unique_ptr<std::vector<std::vector<float>>>ESN::Predict_cpp(std::vector<std
     return y;
 }
 
+std::unique_ptr<std::vector<std::vector<float>>> ESN::Train_cpp(std::vector<std::vector<float>>& u, std::vector<std::vector<float>>& d, float beta) {
+    // read u
+    std::cout << "start reading U" << std::endl;
+    N = u.size();
+    N_u = u[0].size();
+    vec_u.resize(N, std::vector<float>(N_u));
+    for (size_t i = 0; i < N; i++){
+        for (size_t j = 0; j < N_u; j++){
+            vec_u[i][j] = u[i][j];
+        }
+    }
+
+    std::cout << "N_x: " << N_x << std::endl;
+    std::cout << "N_u: " << N_u << std::endl;
+    std::cout << "Win size: " << vec_w_in.size() << ", " << vec_w_in[0].size() << std::endl;
+
+    std::cout << "end reading U" << std::endl;
+
+    // read d
+    std::cout << "start reading D" << std::endl;
+    N_y = d[0].size();
+    auto vec_d = std::make_unique<std::vector<std::vector<float>>>(N, std::vector<float>(N_y, 0.0));
+    for (size_t i = 0; i < N; i++){
+        for (size_t j = 0; j < N_y; j++){
+            //(*vec_d)[i][j] = d[i][j];
+            (*vec_d)[i][j] = m_y_inv_scale * (d[i][j] - m_y_shift);
+        }
+    }
+    std::cout << "N_y: " << N_y << std::endl;
+    std::cout << "end reading D" << std::endl;
+
+    std::cout << "Init y" << std::endl;
+    auto y = std::make_unique<std::vector<std::vector<float>>>(N, std::vector<float>(N_y, 0.0f));
+
+    // 時間発展
+    std::cout << "Running Train" << std::endl;
+    size_t n = 0;
+
+    // N_x行、N_x列
+    auto X_XT = std::make_unique<std::vector<std::vector<double>>>(N_x, std::vector<double>(N_x, 0.0));
+    auto D_XT = std::make_unique<std::vector<std::vector<double>>>(N_y, std::vector<double>(N_x, 0.0));
+
+    float inv_average_window = 1.0f / m_average_window;
+
+    // 可視化用変数
+    int plt_n_max = m_plot_n_max == 0 ? N : m_plot_n_max;
+    auto plt_x = m_plot_x ? std::make_unique<std::vector<std::vector<float>>>(N_x, std::vector<float>(plt_n_max, 0.0f)) : nullptr;
+
+    for (const auto& input : vec_u){
+        auto x_resevoir = reservoir.GetX();
+
+        int x_index = 0;
+        for (const auto &elem : *x_resevoir){
+            if (m_reset_reservoir_state && n % m_average_window == 0){
+                // あるデータと次のデータの境目で、内部状態xを初期化する
+                vec_x[x_index] = 0.0;
+            }else{
+                // あるデータと次のデータの境目で、内部状態をxを初期化しない
+                vec_x[x_index] = elem;
+            }
+            x_index++;
+        }
+
+        auto x_back = m_matlib.dot(vec_w_fb, m_y_prev); // (N_x,N_y) * (N_y,1)
+        auto x_in = m_matlib.dot(vec_w_in, input); // (N_x,N_u) * (N_u,1)
+        auto w_dot_x = m_matlib.dot(vec_w, vec_x); // (N_x,N_x) * (N_x,1)
+
+        // リザバー状態ベクトルの更新
+        for (size_t i = 0; i < N_x; i++){
+            vec_x[i] = (1.0 - a_alpha) * vec_x[i] + a_alpha * std::tanh((*w_dot_x)[i] + (*x_in)[i] + (*x_back)[i]);
+        }
+        reservoir.SetX(vec_x);
+
+        if (m_classification && m_average_window > 0){
+            m_vec_window.Update(vec_x);
+            m_vec_window.GetAverage(vec_x);
+        }
+
+        // 学習器
+        if (n > 0){
+            // optimizerの更新
+            for (size_t i = 0; i < N_x; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    if (m_two_class_weight){
+                        // 2クラス分類のクラス重みを有効化
+                        float class_weight = 0.0f;
+                        if ((*vec_d)[n][0] == 1.0f && (*vec_d)[n][1] == -1.0f) {
+                            // negative
+                            class_weight = m_negative_weight;
+                        }else{
+                            // positive
+                            class_weight = m_positive_weight;
+                        }
+                        (*X_XT)[i][j] += static_cast<double>(vec_x[i] * vec_x[j] * class_weight);
+                    }else{
+                        (*X_XT)[i][j] += static_cast<double>(vec_x[i] * vec_x[j]);
+                    }
+
+                }
+            }
+            for (size_t i = 0; i < N_y; i++){
+                for (size_t j = 0; j < N_x; j++){
+                    if (m_two_class_weight){
+                        // 2クラス分類のクラス重みを有効化
+                        float class_weight = 0.0f;
+                        if ((*vec_d)[n][0] == 1.0f && (*vec_d)[n][1] == -1.0f) {
+                            // negative
+                            class_weight = m_negative_weight;
+                        }else{
+                            // positive
+                            class_weight = m_positive_weight;
+                        }
+                        (*D_XT)[i][j] += (*vec_d)[n][i] * vec_x[j] * class_weight;
+                    }else{
+                        (*D_XT)[i][j] += (*vec_d)[n][i] * vec_x[j];
+                    }
+
+
+                }
+            }
+        }
+
+        auto y_pred = m_matlib.dot(vec_w_out, vec_x);
+
+        for (size_t j = 0; j < N_y; j++){
+            //  yの値をスケール変換する e.g. -1～1の値を0～1へ変換する
+            (*y_pred)[j] = m_y_scale * (*y_pred)[j] + m_y_shift;
+
+            (*y)[n][j] = (*y_pred)[j];
+
+            m_y_prev[j] = (*vec_d)[n][j]; // フィードバック用. ラベルをバックアップ
+        }
+
+        n++;
+    }
+
+    std::cout << "start updating Wout" << std::endl;
+
+    // 学習済みの出力結合重み行列を設定
+    // X_XTの疑似逆行列を求める
+    if (beta > 0.0){
+        for (size_t i = 0; i < N_x; i++){
+            // 対角成分にのみ正則化項を加算
+            (*X_XT)[i][i] += beta;
+        }
+    }
+
+    auto inv_X_XT = m_matlib.GetInverse<Eigen::MatrixXd, Eigen::VectorXd, double>(*X_XT, 1.0e-5);
+
+    // D_XTとX_XTの疑似逆行列の積を計算してWoutを求める
+    auto mul = m_matlib.matMul(*D_XT, *inv_X_XT);
+
+    std::cout << "cpp Wout" << std::endl;
+
+    set_Wout(*mul);
+    std::cout << "end updating Wout" << std::endl;
+
+    std::cout << "Finish Train" << std::endl;
+
+    // yをnumpy型で返す
+    return y;
+}
+
 #ifdef USE_PYBIND
 py::array_t<float> ESN::Train(py::array_t<float> u, py::array_t<float> d, float beta){
     std::string log_name = "cpp_esn";
