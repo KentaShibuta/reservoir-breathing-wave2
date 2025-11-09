@@ -81,13 +81,13 @@ float GetAverageError(const std::vector<std::vector<float>> &input,
         averageError += std::fabs(input[i][0] - predict[i][0]);
     }
 
-    return averageError;
+    return averageError / sampleCount;
 }
 
 
 int main()
 {
-    float threshold = 50.0f;
+    float threshold = 0.1f;
     TimeSeriesMain tsm = TimeSeriesMain();
 
     // ESNの訓練
