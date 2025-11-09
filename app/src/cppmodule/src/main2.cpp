@@ -1,4 +1,5 @@
 #include <string>
+#include <cmath>
 #include "TimeSeries.hpp"
 #include "SUtil.hpp"
 #include "matplotlibcpp.h"
@@ -57,8 +58,36 @@ void SaveResult(
     plt::close();
 }
 
+float GetAverageError(const std::vector<std::vector<float>> &input,
+                      const std::vector<std::vector<float>> &predict)
+{
+    std::cout << "予測誤差を計算" << std::endl;
+    float averageError = 0.0f;
+
+    size_t sampleCount = input.size();
+    std::cout << "input size: " << sampleCount << ", predict size: " << predict.size() << std::endl;
+
+    for (size_t i = 0; i < sampleCount; i++) {
+        if (i >= predict.size()) {
+            std::cerr << "⚠️ predictの行数が足りません (i=" << i << ")" << std::endl;
+            break;
+        }
+        if (input[i].empty() || predict[i].empty()) {
+            std::cerr << "⚠️ 空の行が検出されました (i=" << i << ")" << std::endl;
+            continue;
+        }
+
+        // 問題なしなら差分を計算
+        averageError += std::fabs(input[i][0] - predict[i][0]);
+    }
+
+    return averageError;
+}
+
+
 int main()
 {
+    float threshold = 50.0f;
     TimeSeriesMain tsm = TimeSeriesMain();
 
     // ESNの訓練
@@ -71,8 +100,14 @@ int main()
     std::string trainYFileName = generateUniqueFilename("/root/app/data/timeseries/train_y_", ".png");
     std::string trainErrorFileName = generateUniqueFilename("/root/app/data/timeseries/train_error_", ".png");
     auto Y_train = readCSV(trainFileName);
+    auto Y_train_2  = extractBlock(*Y_train, 1, 0, Y_train->size() - 1, 1); // 推論結果との比較用に0番目からではなく1番目の要素から末尾の要素までを取り出す
     auto Y_train_predict = readCSV(trainPredictFileName);
-    SaveResult(*Y_train, *Y_train_predict, trainYFileName, trainErrorFileName, FS);
+    SaveResult(*Y_train_2, *Y_train_predict, trainYFileName, trainErrorFileName, FS);
+
+    // 予測誤差を計算
+    float trainAverageError = GetAverageError(*Y_train_2, *Y_train_predict);
+    std::string result1 = (trainAverageError > threshold) ? "異常" : "正常";
+    std::cout << "trainAverageError: " << trainAverageError << ", " << result1 << std::endl;
 
     // ESNの推論
     std::string testFileName = "/root/app/data/IMG_2047/ROI_series_filtered.csv";                                // テストデータのパス
@@ -82,8 +117,14 @@ int main()
     std::string testYFileName = generateUniqueFilename("/root/app/data/timeseries/test_y_", ".png");
     std::string testErrorFileName = generateUniqueFilename("/root/app/data/timeseries/test_error_", ".png");
     auto Y_test = readCSV(testFileName);
+    auto Y_test_2  = extractBlock(*Y_test, 1, 0, Y_test->size() - 1, 1); // 推論結果との比較用に0番目からではなく1番目の要素から末尾の要素までを取り出す
     auto Y_test_predict = readCSV(testPredictFileName);
     SaveResult(*Y_test, *Y_test_predict, testYFileName, testErrorFileName, FS);
+
+    // 予測誤差を計算
+    float predictAverageError = GetAverageError(*Y_test_2, *Y_test_predict);
+    std::string result2 = (predictAverageError > threshold) ? "異常" : "正常";
+    std::cout << "predictAverageError: " << predictAverageError << ", " << result2 << std::endl;
 
     return 0;
 }
