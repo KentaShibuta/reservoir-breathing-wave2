@@ -5,8 +5,6 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
-#include "matplotlibcpp.h"
-namespace plt = matplotlibcpp;
 
 inline std::string currentDateTime() {
     std::time_t t = std::time(nullptr);
@@ -147,56 +145,6 @@ inline std::string generateUniqueFilename(const std::string& prefix = "file_", c
 inline std::string getFilenameWithoutExtension(const std::string& filepath) {
     std::filesystem::path p(filepath);
     return p.stem().string();  // 拡張子を除いたファイル名
-}
-
-// 結果を保存（グラフ描画）
-inline void SaveResult(
-                const std::vector<std::vector<float>>& inputY,
-                const std::vector<std::vector<float>>& predictY,
-                const std::string& timeSeriesFileName,
-                const std::string& errorFileName,
-                double FS)
-{
-    if (inputY.empty() || predictY.empty()) {
-        std::cerr << "Error: 入力データが空です。" << std::endl;
-        return;
-    }
-
-    // データ数を取得
-    size_t T = std::min({inputY.size(), predictY.size()});
-
-    std::vector<double> time(T), y_true(T), y_pred(T), y_err(T);
-
-    for (size_t i = 0; i < T; ++i) {
-        // 各ベクトルは1列想定：inputY[i][0], predictY[i][0]
-        double y_val = (inputY[i].empty()) ? 0.0 : inputY[i][0];
-        double p_val = (predictY[i].empty()) ? 0.0 : predictY[i][0];
-
-        time[i] = static_cast<double>(i) / FS;
-        y_true[i] = y_val;
-        y_pred[i] = p_val;
-        y_err[i]  = std::fabs(y_val - p_val);
-    }
-
-    // 予測 vs 元データ（時間変化）
-    plt::figure_size(1200, 400);
-    plt::plot(time, y_true, {{"color", "blue"}, {"label", "original"}});
-    plt::plot(time, y_pred, {{"color", "red"}, {"label", "predict"}});
-    plt::xlabel("time [s]");
-    plt::ylabel("y");
-    plt::legend();
-    plt::grid(true);
-    plt::save(timeSeriesFileName);
-    plt::close();
-
-    // 誤差のグラフ
-    plt::figure_size(1200, 400);
-    plt::plot(time, y_err, {{"color", "purple"}});
-    plt::xlabel("time [s]");
-    plt::ylabel("error");
-    plt::grid(true);
-    plt::save(errorFileName);
-    plt::close();
 }
 
 #endif // SUTIL_H_

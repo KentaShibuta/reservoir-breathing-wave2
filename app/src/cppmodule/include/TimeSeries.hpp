@@ -24,7 +24,13 @@ class TimeSeries{
 
     public:
         void Train(const std::string &inputFileName, const std::string &weightFileName);
-        std::string Predict(const std::string &inputFileName, const std::string &weightFileName);
+        std::unique_ptr<std::vector<std::vector<float>>> Predict(const std::string &inputFileName, const std::string &weightFileName);
+};
+
+class TimeSeriesMain{
+    public:
+        void Train(const std::string &trainFileName, const std::string &weightFileName, const std::string &predictOutputFileName);
+        void Predict(const std::string &testFileName, const std::string &weightFileName, const std::string &predictOutputFileName);
 };
 
 #endif // TIMESERIES_H_

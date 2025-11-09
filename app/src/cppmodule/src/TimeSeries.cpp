@@ -22,7 +22,7 @@ void TimeSeries::Train(const std::string &inputFileName, const std::string &weig
     Write_bin(esn.vec_w_out, weightFileName);
 }
 
-std::string TimeSeries::Predict(const std::string &inputFileName, const std::string &weightFileName)
+std::unique_ptr<std::vector<std::vector<float>>> TimeSeries::Predict(const std::string &inputFileName, const std::string &weightFileName)
 {
     std::cout << "read input file name: " << inputFileName << std::endl;
     auto data = readCSV(inputFileName);
@@ -42,8 +42,27 @@ std::string TimeSeries::Predict(const std::string &inputFileName, const std::str
 
     // 訓練データでの予測
     auto predict_Y = esn.Predict_cpp(*X);
-    std::string outputFileName = generateUniqueFilename("/root/app/data/timeseries/output_", ".csv");
-    Write2DVectorToFile(outputFileName, *predict_Y);
 
-    return outputFileName;
+    return predict_Y;
+}
+
+void TimeSeriesMain::Train(const std::string &trainFileName, const std::string &weightFileName, const std::string &predictOutputFileName)
+{
+    // 訓練を実行する
+    TimeSeries ts = TimeSeries();
+    ts.Train(trainFileName, weightFileName);
+
+    // 推論結果をcsv形式で保存する
+    auto predict_Y = ts.Predict(trainFileName, weightFileName);
+    Write2DVectorToFile(predictOutputFileName, *predict_Y);
+}
+
+void TimeSeriesMain::Predict(const std::string &testFileName, const std::string &weightFileName, const std::string &predictOutputFileName)
+{
+    // 推論を実行する
+    TimeSeries ts = TimeSeries();
+
+    // 推論結果をcsv形式で保存する
+    auto predict_Y = ts.Predict(testFileName, weightFileName);
+    Write2DVectorToFile(predictOutputFileName, *predict_Y);
 }
